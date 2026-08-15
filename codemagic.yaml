@@ -2,12 +2,9 @@ app_name: PackPulseDrops
 max_build_duration: 120
 
 workflows:
-  ios-workflow:
-    name: iOS Build
-    instance_type: mac_mini
-    environment:
-      xcode: latest
-      node: 18
+  build-and-test:
+    name: Build and Test
+    instance_type: linux
     triggering:
       events:
         - push
@@ -15,14 +12,17 @@ workflows:
       branch:
         include:
           - main
+    environment:
+      node: 18
     scripts:
       - name: Install dependencies
         script: npm install
-      - name: Build for iOS
-        script: npm run build:ios || echo "iOS build script not found, continuing..."
+      - name: Build application
+        script: npm run build
+      - name: Run tests
+        script: npm test -- --passWithNoTests --watchAll=false
     artifacts:
       - build/**/*
-      - ios/**/*.ipa
     publishing:
       email:
         recipients:
