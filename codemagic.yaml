@@ -9,9 +9,6 @@ workflows:
       events:
         - push
         - pull_request
-      branch:
-        include:
-          - main
     environment:
       node: 18
     scripts:
