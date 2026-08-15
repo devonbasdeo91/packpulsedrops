@@ -1,3 +1,4 @@
+app_name: PackPulseDrops
 workflows:
   build-web:
     name: Build and Test
