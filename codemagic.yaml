@@ -6,10 +6,6 @@ workflows:
       events:
         - push
         - pull_request
-      branch:
-        include_patterns:
-          - main
-          - develop
     environment:
       node: 18
     scripts:
