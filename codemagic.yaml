@@ -1,0 +1,30 @@
+workflows:
+  build-web:
+    name: Build and Test
+    instance_type: linux_x2
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch:
+        include_patterns:
+          - main
+          - develop
+    environment:
+      node: 18
+    scripts:
+      - name: Install dependencies
+        script: npm install
+      - name: Build application
+        script: npm run build
+      - name: Run tests
+        script: npm test -- --passWithNoTests --watchAll=false
+    artifacts:
+      - build/**/*
+    publishing:
+      email:
+        recipients:
+          - devonbasdeo91@example.com
+        notify:
+          success: true
+          failure: true
