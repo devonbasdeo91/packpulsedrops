@@ -20,7 +20,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - devonbasdeo91@example.com
+          - devon_basdeo@icloud.com
         notify:
           success: true
           failure: true
