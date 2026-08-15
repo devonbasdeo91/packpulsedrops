@@ -1,7 +1,7 @@
 workflows:
   build-web:
     name: Build and Test
-    instance_type: linux_x2
+    instance_type: linux
     triggering:
       events:
         - push
