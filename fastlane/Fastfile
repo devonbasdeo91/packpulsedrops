@@ -1,7 +1,9 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "Upload build to App Store Connect (TestFlight)"
+  # Upload via App Store Connect API key (.p8)
+  # Requires: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY (base64 .p8 content)
+  desc "Upload IPA to TestFlight using App Store Connect API key"
   lane :upload_to_testflight do
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
@@ -13,12 +15,26 @@ platform :ios do
 
     upload_to_testflight(
       api_key: api_key,
-      ipa: ENV["IPA_PATH"] || "build/PackPulseDrops.ipa",
+      ipa: ENV["IPA_PATH"] || "build/app.ipa",
       skip_waiting_for_build_processing: true
     )
   end
 
-  desc "Upload build directly to App Store Connect for review"
+  # Upload via distribution certificate (.p12) + Apple ID
+  # Requires: APPLE_ID, APPLE_ID_PASSWORD (app-specific password), APP_IDENTIFIER, TEAM_ID
+  # Certificate must already be imported into the keychain by the workflow before this lane runs
+  desc "Upload IPA to TestFlight using distribution certificate and Apple ID"
+  lane :upload_p12 do
+    upload_to_testflight(
+      username: ENV["APPLE_ID"],
+      app_identifier: ENV["APP_IDENTIFIER"],
+      team_id: ENV["TEAM_ID"],
+      ipa: ENV["IPA_PATH"] || "build/app.ipa",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Upload IPA directly to App Store Connect for review (API key)"
   lane :upload_to_appstore do
     api_key = app_store_connect_api_key(
       key_id: ENV["ASC_KEY_ID"],
@@ -30,7 +46,7 @@ platform :ios do
 
     deliver(
       api_key: api_key,
-      ipa: ENV["IPA_PATH"] || "build/PackPulseDrops.ipa",
+      ipa: ENV["IPA_PATH"] || "build/app.ipa",
       submit_for_review: false,
       automatic_release: false,
       skip_metadata: true,
