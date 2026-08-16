@@ -47,24 +47,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 18.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.2
-          # Fastlane is installed directly via `gem install` below, so Bundler caching is intentionally disabled.
-          bundler-cache: false
-
-      - name: Install Fastlane
-        run: |
-          set -euo pipefail
-          gem install fastlane --no-document
-          fastlane --version
-
       - name: Prepare app source
         run: |
           set -euo pipefail
@@ -90,6 +72,28 @@ jobs:
           fi
 
           echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
+
+      - name: Set up Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            extracted-app/package-lock.json
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          # Fastlane is installed directly via `gem install` below, so Bundler caching is intentionally disabled.
+          bundler-cache: false
+
+      - name: Install Fastlane
+        run: |
+          set -euo pipefail
+          gem install fastlane --no-document
+          fastlane --version
 
       - name: Validate App Store configuration
         run: |

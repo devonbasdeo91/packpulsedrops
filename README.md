@@ -4,7 +4,7 @@ Trading Digital Cards application built with React.
 
 ## Project Structure
 
-- `pack-pulse-drops (7).zip` - Archived React/Vite app source checked in at the repository root
+- Root `.zip` archive - Archived React/Vite app source checked in at the repository root
 - `.github/workflows/` - GitHub Actions workflows for CI and App Store distribution
 - `fastlane/` - Fastlane configuration for iOS build and App Store upload
 
@@ -17,7 +17,8 @@ Trading Digital Cards application built with React.
 ### Installation
 
 ```bash
-unzip "pack-pulse-drops (7).zip" -d extracted-app
+archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+unzip "$archive" -d extracted-app
 cd extracted-app
 npm install
 ```
