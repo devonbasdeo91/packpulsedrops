@@ -118,6 +118,7 @@ jobs:
       - name: Run fastlane deliver
         run: |
           set -euo pipefail
+          mkdir -p fastlane/logs
           fastlane ios deliver 2>&1 | tee fastlane/logs/deliver.log
 
       - name: Upload Fastlane logs

@@ -32,11 +32,14 @@ def ios_build_settings
     end
   end
 
-  {
-    workspace: workspace,
-    project: project,
-    scheme: scheme
-  }
+  settings = { scheme: scheme }
+  if workspace.empty?
+    settings[:project] = project
+  else
+    settings[:workspace] = workspace
+  end
+
+  settings
 end
 
 def env_true_unless_false(key)
@@ -81,7 +84,7 @@ platform :ios do
       silent: false
     }
 
-    if settings[:workspace].empty?
+    if settings[:workspace].nil?
       build_options[:project] = settings[:project]
     else
       build_options[:workspace] = settings[:workspace]
