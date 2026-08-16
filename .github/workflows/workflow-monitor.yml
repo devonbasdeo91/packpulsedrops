@@ -35,7 +35,7 @@ jobs:
 
         mkdir -p monitor-output
         gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > monitor-output/run.json
-        gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" > monitor-output/jobs.json
+        gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" > monitor-output/jobs.json
         gh run view "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --log-failed > monitor-output/failed.log || true
 
         python - <<'PY'
