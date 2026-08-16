@@ -50,7 +50,8 @@ def ipa_output_settings(settings)
   output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
   output_directory = "build/ios" if output_directory.empty?
   output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
-  output_name = "#{settings[:scheme]}.ipa" if output_name.empty?
+  output_name = settings[:scheme] if output_name.empty?
+  output_name = output_name.delete_suffix(".ipa")
 
   {
     output_directory: output_directory,
@@ -104,7 +105,7 @@ platform :ios do
     output_settings = ipa_output_settings(settings)
 
     ipa_path = ENV["IPA_PATH"].to_s.strip
-    ipa_path = File.join(output_settings[:output_directory], output_settings[:output_name]) if ipa_path.empty?
+    ipa_path = File.join(output_settings[:output_directory], "#{output_settings[:output_name]}.ipa") if ipa_path.empty?
 
     UI.user_error!("IPA not found at #{ipa_path}. Run `fastlane build` first or set IPA_PATH.") unless File.exist?(ipa_path)
 
