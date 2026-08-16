@@ -68,7 +68,8 @@ jobs:
 
           missing=0
           for secret_name in FASTLANE_USER FASTLANE_PASSWORD FASTLANE_APPLE_APPLICATION_IDENTIFIER FASTLANE_TEAM_ID; do
-            if [ -z "${!secret_name:-}" ]; then
+            secret_value="${!secret_name-}"
+            if [ -z "${secret_value}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
               missing=1
             fi

@@ -84,10 +84,10 @@ platform :ios do
       silent: false
     }
 
-    if settings[:workspace].nil?
-      build_options[:project] = settings[:project]
-    else
+    if settings.key?(:workspace)
       build_options[:workspace] = settings[:workspace]
+    else
+      build_options[:project] = settings[:project]
     end
 
     configuration = ENV["IOS_CONFIGURATION"].to_s.strip
