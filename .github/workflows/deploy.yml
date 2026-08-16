@@ -1,0 +1,58 @@
+name: Deploy to TestFlight
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'Direct download URL for the IPA file (leave blank to use latest GitHub Release)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download IPA
+        id: download_ipa
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IPA_URL: ${{ github.event.inputs.ipa_url }}
+        run: |
+          set -euo pipefail
+          if [ -n "$IPA_URL" ]; then
+            echo "Downloading IPA from provided URL..."
+            curl -fL "$IPA_URL" -o app.ipa
+          else
+            echo "Looking for IPA in latest GitHub Release..."
+            gh release download --repo "$GITHUB_REPOSITORY" --pattern "*.ipa" --dir . 2>/dev/null || true
+            ipa_path="$(find . -maxdepth 1 -name '*.ipa' | head -n 1)"
+            if [ -z "$ipa_path" ]; then
+              echo "::error::No .ipa found. Upload the IPA to a GitHub Release at: https://github.com/$GITHUB_REPOSITORY/releases/new"
+              exit 1
+            fi
+            mv "$ipa_path" app.ipa
+          fi
+          echo "ipa_path=app.ipa" >> "$GITHUB_OUTPUT"
+
+      - name: Upload IPA to TestFlight
+        uses: apple-actions/upload-testflight-build@v5
+        with:
+          app-path: ${{ steps.download_ipa.outputs.ipa_path }}
+          app-type: ios
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}

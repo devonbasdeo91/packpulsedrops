@@ -1,0 +1,4 @@
+apple_id(ENV["FASTLANE_USER"]) unless ENV["FASTLANE_USER"].to_s.strip.empty?
+app_identifier(ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"]) unless ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"].to_s.strip.empty?
+itc_team_id(ENV["FASTLANE_TEAM_ID"]) unless ENV["FASTLANE_TEAM_ID"].to_s.strip.empty?
+team_id(ENV["FASTLANE_TEAM_ID"]) unless ENV["FASTLANE_TEAM_ID"].to_s.strip.empty?
