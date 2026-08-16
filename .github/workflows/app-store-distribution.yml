@@ -111,6 +111,7 @@ jobs:
           pod install --repo-update
 
       - name: Run fastlane build
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p fastlane/logs
@@ -118,6 +119,7 @@ jobs:
           exit "${PIPESTATUS[0]}"
 
       - name: Run fastlane deliver
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p fastlane/logs
