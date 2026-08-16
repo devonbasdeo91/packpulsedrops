@@ -20,8 +20,6 @@ on:
         required: false
         default: app-store
         type: string
-  push:
-    branches: [ main ]
 
 permissions:
   contents: read
