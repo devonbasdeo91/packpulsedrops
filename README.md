@@ -4,10 +4,9 @@ Trading Digital Cards application built with React.
 
 ## Project Structure
 
-- `src/` - Source code
-- `public/` - Static files
-- `components/` - React components
-- `build/` - Production build output
+- Root `.zip` archive - Archived React/Vite app source checked in at the repository root
+- `.github/workflows/` - GitHub Actions workflows for CI and App Store distribution
+- `fastlane/` - Fastlane configuration for iOS build and App Store upload
 
 ## Getting Started
 
@@ -18,16 +17,19 @@ Trading Digital Cards application built with React.
 ### Installation
 
 ```bash
+archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+unzip "$archive" -d extracted-app
+cd extracted-app
 npm install
 ```
 
 ### Development
 
 ```bash
-npm start
+npm run dev
 ```
 
-The app will open at [http://localhost:3000](http://localhost:3000)
+The app will open at [http://localhost:5173](http://localhost:5173) by default.
 
 ### Build
 
@@ -35,17 +37,70 @@ The app will open at [http://localhost:3000](http://localhost:3000)
 npm run build
 ```
 
-This creates a production build in the `build` folder.
+This creates a production build in the `dist` folder.
 
 ### Testing
 
-```bash
-npm test
-```
+There is currently no automated test script in the archived app. CI installs dependencies, runs lint when available, builds the app, and skips tests when no `test` script is defined.
 
 ## Continuous Integration
 
-This project uses **Codemagic** for automated builds and testing. Every push to `main` or `develop` branch triggers an automatic build.
+This project uses **GitHub Actions** for automated builds and App Store distribution.
+
+### App Store distribution workflow
+
+The repository now includes `.github/workflows/app-store-distribution.yml`, which can run manually or on pushes to `main` to:
+
+- Check out the code
+- Set up Node.js 18 and Ruby
+- Install Fastlane
+- Run `fastlane build`
+- Run `fastlane deliver`
+
+Configure these GitHub Actions secrets before running it:
+
+- `FASTLANE_APPLE_APPLICATION_IDENTIFIER`
+- `FASTLANE_TEAM_ID`
+
+For authentication, configure all of the following for API key authentication:
+
+- `APP_STORE_CONNECT_API_KEY`
+- `APP_STORE_CONNECT_API_KEY_ID`
+- `APP_STORE_CONNECT_ISSUER_ID`
+
+`APP_STORE_CONNECT_API_KEY` can be stored as either raw `.p8` content (including escaped `\n`) or base64-encoded `.p8` content.
+
+Or configure both of the following for Apple ID authentication:
+
+- `FASTLANE_USER`
+- `FASTLANE_PASSWORD`
+
+You will also need code-signing certificates and provisioning profiles available to Fastlane, either through additional secrets or a Fastlane-managed solution such as `match`.
+
+The archived web app source also now includes a Capacitor iOS wrapper (`capacitor.config.ts` and `ios/`) so GitHub Actions can sync and build an iOS project before Fastlane uploads the resulting IPA.
+
+### TestFlight IPA upload workflow
+
+The repository also includes `.github/workflows/deploy.yml`, which runs on `macos-14` on pushes to `main` or manually to:
+
+- Extract the ZIP archive committed at the repository root into `extracted_app`
+- Install dependencies and build the Base44 web app
+- Sync the Capacitor iOS project and install CocoaPods dependencies
+- Import the signing certificate and provisioning profile from GitHub Actions secrets
+- Archive and export an `.ipa` with Xcode command-line tools
+- Upload that IPA to App Store Connect with `apple-actions/upload-testflight-build@v5`
+
+Configure these GitHub Actions secrets before running it:
+
+- `APPSTORE_ISSUER_ID`
+- `APPSTORE_KEY_ID`
+- `APPSTORE_PRIVATE_KEY`
+- `BUILD_CERTIFICATE_BASE64`
+- `BUILD_PROVISION_PROFILE_BASE64`
+
+If your `.p12` certificate export is password-protected, also add:
+
+- `BUILD_CERTIFICATE_PASSWORD`
 
 ## License
 

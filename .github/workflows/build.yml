@@ -2,16 +2,19 @@ name: Build and Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ '**' ]
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
+<<<<<<< HEAD
 
 env:
   APP_ARCHIVE: pack-pulse-drops (7).zip
 
 permissions:
   contents: read
+=======
+>>>>>>> origin/main
 
 jobs:
   build:
@@ -24,6 +27,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+<<<<<<< HEAD
     - name: Prepare app workspace
       id: prepare
       shell: bash
@@ -62,12 +66,40 @@ jobs:
         echo "APP_DIR=$app_dir" >> "$GITHUB_ENV"
         echo "app_dir=$app_dir" >> "$GITHUB_OUTPUT"
         echo "Prepared app workspace at $app_dir"
+=======
+    - name: Prepare app source
+      run: |
+        set -euo pipefail
+
+        if [ -f package.json ]; then
+          echo "APP_DIR=." >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+        if [ -z "$archive" ]; then
+          echo "::error::No package.json or source archive found at the repository root."
+          exit 1
+        fi
+
+        rm -rf extracted-app
+        mkdir -p extracted-app
+        unzip -q "$archive" -d extracted-app
+
+        if [ ! -f extracted-app/package.json ]; then
+          echo "::error::Source archive '$archive' does not contain a package.json at its root."
+          exit 1
+        fi
+
+        echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
+>>>>>>> origin/main
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: npm
+<<<<<<< HEAD
         cache-dependency-path: package-lock.json
 
     - name: Validate Node.js compatibility
@@ -78,11 +110,17 @@ jobs:
       working-directory: ${{ env.APP_DIR }}
       run: |
         node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (!pkg.scripts || !pkg.scripts.build) { console.error('Missing required npm script: build'); process.exit(1); } console.log('Detected npm scripts:', Object.keys(pkg.scripts).join(', '));"
+=======
+        cache-dependency-path: |
+          package-lock.json
+          extracted-app/package-lock.json
+>>>>>>> origin/main
 
     - name: Install dependencies
       working-directory: ${{ env.APP_DIR }}
       run: npm ci
 
+<<<<<<< HEAD
     - name: Build application
       working-directory: ${{ env.APP_DIR }}
       run: npm run build
@@ -126,10 +164,37 @@ jobs:
           fi
         } >> "$GITHUB_STEP_SUMMARY"
 
+=======
+    - name: Run lint
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run lint --if-present
+
+    - name: Build application
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run build --if-present
+
+    - name: Run tests
+      working-directory: ${{ env.APP_DIR }}
+      run: |
+        set -euo pipefail
+        if node --input-type=commonjs -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
+          npm run test -- --passWithNoTests --watchAll=false
+        else
+          echo "No test script defined; skipping tests."
+        fi
+
+>>>>>>> origin/main
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       if: always() && env.APP_DIR != ''
       with:
         name: build
+<<<<<<< HEAD
         path: ${{ env.APP_DIR }}/dist/
         if-no-files-found: ignore
+=======
+        path: |
+          ${{ env.APP_DIR }}/build/
+          ${{ env.APP_DIR }}/dist/
+        if-no-files-found: warn
+>>>>>>> origin/main
