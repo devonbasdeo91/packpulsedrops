@@ -45,7 +45,26 @@ npm test
 
 ## Continuous Integration
 
-This project uses **Codemagic** for automated builds and testing. Every push to `main` or `develop` branch triggers an automatic build.
+This project uses **GitHub Actions** for automated builds and App Store distribution.
+
+### App Store distribution workflow
+
+The repository now includes `.github/workflows/app-store-distribution.yml`, which can run manually or on pushes to `main` to:
+
+- Check out the code
+- Set up Node.js 18 and Ruby
+- Install Fastlane
+- Run `fastlane build`
+- Run `fastlane deliver`
+
+Configure these GitHub Actions secrets before running it:
+
+- `FASTLANE_USER`
+- `FASTLANE_PASSWORD`
+- `FASTLANE_APPLE_APPLICATION_IDENTIFIER`
+- `FASTLANE_TEAM_ID`
+
+You will also need code-signing certificates and provisioning profiles available to Fastlane, either through additional secrets or a Fastlane-managed solution such as `match`.
 
 ## License
 

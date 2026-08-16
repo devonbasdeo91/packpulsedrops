@@ -1,0 +1,104 @@
+default_platform(:ios)
+
+def require_env!(key, description)
+  value = ENV[key].to_s.strip
+  UI.user_error!("Missing #{key} (#{description}). Configure it in GitHub Actions secrets.") if value.empty?
+  value
+end
+
+def ios_build_settings
+  workspace = ENV["IOS_WORKSPACE"].to_s.strip
+  project = ENV["IOS_PROJECT"].to_s.strip
+  scheme = ENV["IOS_SCHEME"].to_s.strip
+
+  if workspace.empty? && project.empty?
+    workspace = (Dir["ios/*.xcworkspace"] + Dir["*.xcworkspace"]).first.to_s
+    project = (Dir["ios/*.xcodeproj"] + Dir["*.xcodeproj"]).first.to_s if workspace.empty?
+  end
+
+  UI.user_error!("No Xcode workspace or project found. Commit the iOS project or set IOS_WORKSPACE/IOS_PROJECT.") if workspace.empty? && project.empty?
+
+  if scheme.empty?
+    scheme = if workspace.empty?
+      File.basename(project, ".xcodeproj")
+    else
+      File.basename(workspace, ".xcworkspace")
+    end
+  end
+
+  {
+    workspace: workspace,
+    project: project,
+    scheme: scheme
+  }
+end
+
+platform :ios do
+  desc "Build the iOS app for App Store distribution"
+  lane :build do
+    require_env!("FASTLANE_USER", "Apple ID email")
+    require_env!("FASTLANE_PASSWORD", "Apple ID password or app-specific password")
+    require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
+    require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
+
+    setup_ci if ENV["CI"]
+
+    settings = ios_build_settings
+    output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
+    output_directory = "build/ios" if output_directory.empty?
+    output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
+    output_name = "#{settings[:scheme]}.ipa" if output_name.empty?
+
+    build_options = {
+      clean: true,
+      scheme: settings[:scheme],
+      export_method: ENV.fetch("IOS_EXPORT_METHOD", "app-store"),
+      output_directory: output_directory,
+      output_name: output_name,
+      silent: false
+    }
+
+    if settings[:workspace].empty?
+      build_options[:project] = settings[:project]
+    else
+      build_options[:workspace] = settings[:workspace]
+    end
+
+    configuration = ENV["IOS_CONFIGURATION"].to_s.strip
+    build_options[:configuration] = configuration unless configuration.empty?
+
+    build_app(**build_options)
+    UI.success("Created iOS build at #{File.join(output_directory, output_name)}")
+  end
+
+  desc "Upload the iOS build to App Store Connect"
+  lane :deliver do
+    require_env!("FASTLANE_USER", "Apple ID email")
+    require_env!("FASTLANE_PASSWORD", "Apple ID password or app-specific password")
+    require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
+    require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
+
+    settings = ios_build_settings
+    output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
+    output_directory = "build/ios" if output_directory.empty?
+    output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
+    output_name = "#{settings[:scheme]}.ipa" if output_name.empty?
+
+    ipa_path = ENV["IPA_PATH"].to_s.strip
+    ipa_path = File.join(output_directory, output_name) if ipa_path.empty?
+
+    UI.user_error!("IPA not found at #{ipa_path}. Run `fastlane build` first or set IPA_PATH.") unless File.exist?(ipa_path)
+
+    upload_to_app_store(
+      ipa: ipa_path,
+      app_identifier: ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"],
+      apple_id: ENV["FASTLANE_USER"],
+      team_id: ENV["FASTLANE_TEAM_ID"],
+      skip_metadata: ENV["DELIVER_SKIP_METADATA"] != "false",
+      skip_screenshots: ENV["DELIVER_SKIP_SCREENSHOTS"] != "false",
+      force: true
+    )
+
+    UI.success("Uploaded #{ipa_path} to App Store Connect.")
+  end
+end

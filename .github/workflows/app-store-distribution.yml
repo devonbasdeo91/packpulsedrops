@@ -1,0 +1,114 @@
+name: App Store Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      ios_scheme:
+        description: Optional Xcode scheme override
+        required: false
+        type: string
+      ios_workspace:
+        description: Optional Xcode workspace path override
+        required: false
+        type: string
+      ios_project:
+        description: Optional Xcode project path override
+        required: false
+        type: string
+      ios_export_method:
+        description: Export method for the IPA
+        required: false
+        default: app-store
+        type: string
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  distribute:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
+      FASTLANE_PASSWORD: ${{ secrets.FASTLANE_PASSWORD }}
+      FASTLANE_APPLE_APPLICATION_IDENTIFIER: ${{ secrets.FASTLANE_APPLE_APPLICATION_IDENTIFIER }}
+      FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+      IOS_SCHEME: ${{ github.event.inputs.ios_scheme }}
+      IOS_WORKSPACE: ${{ github.event.inputs.ios_workspace }}
+      IOS_PROJECT: ${{ github.event.inputs.ios_project }}
+      IOS_EXPORT_METHOD: ${{ github.event.inputs.ios_export_method || 'app-store' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: false
+
+      - name: Install Fastlane
+        run: |
+          set -euo pipefail
+          gem install fastlane --no-document
+          fastlane --version
+
+      - name: Validate App Store configuration
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for secret_name in FASTLANE_USER FASTLANE_PASSWORD FASTLANE_APPLE_APPLICATION_IDENTIFIER FASTLANE_TEAM_ID; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::Missing required secret: ${secret_name}"
+              missing=1
+            fi
+          done
+
+          if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && \
+            ! find . -maxdepth 2 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) | grep -q .; then
+            echo "::error::No Xcode workspace or project was found. Commit the iOS project or supply ios_workspace/ios_project when running the workflow."
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            echo "❌ App Store distribution prerequisites are missing." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Run fastlane build
+        run: |
+          set -euo pipefail
+          mkdir -p fastlane/logs
+          fastlane build 2>&1 | tee fastlane/logs/build.log
+
+      - name: Run fastlane deliver
+        run: |
+          set -euo pipefail
+          fastlane deliver 2>&1 | tee fastlane/logs/deliver.log
+
+      - name: Upload Fastlane logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastlane-logs
+          path: fastlane/logs/
+          if-no-files-found: warn
+
+      - name: Distribution succeeded
+        if: success()
+        run: echo "✅ App Store distribution completed successfully." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Distribution failed
+        if: failure()
+        run: |
+          echo "::error::App Store distribution failed. Review the Fastlane logs artifact and workflow output for details."
+          echo "❌ App Store distribution failed. Review the Fastlane logs artifact and workflow output for details." >> "$GITHUB_STEP_SUMMARY"

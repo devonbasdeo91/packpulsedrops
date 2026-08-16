@@ -15,26 +15,65 @@ jobs:
         node-version: [18.x]
 
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
+    - name: Prepare app source
+      run: |
+        set -euo pipefail
+
+        if [ -f package.json ]; then
+          echo "APP_DIR=." >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+        if [ -z "$archive" ]; then
+          echo "::error::No package.json or source archive found at the repository root."
+          exit 1
+        fi
+
+        rm -rf extracted-app
+        mkdir -p extracted-app
+        unzip -q "$archive" -d extracted-app
+
+        if [ ! -f extracted-app/package.json ]; then
+          echo "::error::Source archive '$archive' does not contain a package.json at its root."
+          exit 1
+        fi
+
+        echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
+
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
+
     - name: Install dependencies
-      run: npm install
-    
+      working-directory: ${{ env.APP_DIR }}
+      run: npm ci
+
+    - name: Run lint
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run lint --if-present
+
+    - name: Run typecheck
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run typecheck --if-present
+
     - name: Build application
-      run: npm run build
-    
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run build --if-present
+
     - name: Run tests
-      run: npm test -- --passWithNoTests --watchAll=false
-    
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run test --if-present -- --passWithNoTests --watchAll=false
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: build
-        path: build/
+        path: |
+          ${{ env.APP_DIR }}/build/
+          ${{ env.APP_DIR }}/dist/
+        if-no-files-found: warn
