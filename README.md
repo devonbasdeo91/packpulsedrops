@@ -81,17 +81,26 @@ The archived web app source also now includes a Capacitor iOS wrapper (`capacito
 
 ### TestFlight IPA upload workflow
 
-The repository also includes `.github/workflows/deploy.yml`, which runs on pushes to `main` or manually to:
+The repository also includes `.github/workflows/deploy.yml`, which runs on `macos-14` on pushes to `main` or manually to:
 
 - Extract the ZIP archive committed at the repository root into `extracted_app`
-- Search recursively for the first `.ipa` file inside `extracted_app`
-- Upload that IPA to App Store Connect with `apple-actions/upload-testflight-build`
+- Install dependencies and build the Base44 web app
+- Sync the Capacitor iOS project and install CocoaPods dependencies
+- Import the signing certificate and provisioning profile from GitHub Actions secrets
+- Archive and export an `.ipa` with Xcode command-line tools
+- Upload that IPA to App Store Connect with `apple-actions/upload-testflight-build@v5`
 
 Configure these GitHub Actions secrets before running it:
 
 - `APPSTORE_ISSUER_ID`
 - `APPSTORE_KEY_ID`
 - `APPSTORE_PRIVATE_KEY`
+- `BUILD_CERTIFICATE_BASE64`
+- `BUILD_PROVISION_PROFILE_BASE64`
+
+If your `.p12` certificate export is password-protected, also add:
+
+- `BUILD_CERTIFICATE_PASSWORD`
 
 ## License
 
