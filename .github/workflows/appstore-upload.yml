@@ -109,7 +109,7 @@ jobs:
             ipa_path="build/PackPulseDrops.ipa"
             curl -fL "${SECRET_IPA_URL}" -o "${ipa_path}"
           else
-            gh release download --repo "${GITHUB_REPOSITORY}" --pattern "*.ipa" --dir build --clobber
+            gh release download --repo "${GITHUB_REPOSITORY}" --pattern "*.ipa" --dir build --clobber || true
             ipa_path="$(find build -maxdepth 1 -type f -name '*.ipa' | head -n 1)"
           fi
 
