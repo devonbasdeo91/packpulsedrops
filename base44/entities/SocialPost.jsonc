@@ -1,0 +1,64 @@
+{
+  "name": "SocialPost",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "facebook",
+        "instagram",
+        "x",
+        "reddit",
+        "community"
+      ],
+      "default": "community"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "stats_snapshot": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "content",
+    "source"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

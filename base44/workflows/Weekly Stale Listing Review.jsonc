@@ -1,0 +1,47 @@
+{
+  "name": "Weekly Stale Listing Review",
+  "description": "Every Monday at 8am ET, finds active marketplace listings older than 7 days, generates AI price suggestions, and emails each seller asking if they'd like to lower their price. Sellers reply via the in-app Price Review page, which updates the listing and notifies them when the change is live.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 8 * * 1",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_stale_listing_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "email_sellers": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "weekly-stale-listing-email",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email sellers of stale listings",
+            "description": "Find >7-day-old listings, suggest lower prices, email sellers asking if they want to adjust"
+          }
+        }
+      }
+    ]
+  }
+}

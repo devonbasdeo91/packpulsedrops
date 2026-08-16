@@ -1,0 +1,71 @@
+{
+  "name": "PullFeedEvent",
+  "type": "object",
+  "properties": {
+    "card_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "yugioh",
+        "baseball",
+        "pokemon",
+        "dragonball",
+        "digimon",
+        "basketball",
+        "naruto",
+        "bleach",
+        "football",
+        "soccer",
+        "cricket",
+        "tennis",
+        "wnba",
+        "nhl",
+        "golf",
+        "badminton",
+        "tabletennis",
+        "swimming",
+        "trackfield",
+        "f1"
+      ]
+    },
+    "rarity": {
+      "type": "string"
+    },
+    "pack_name": {
+      "type": "string"
+    },
+    "value_gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "puller_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "card_name",
+    "category",
+    "rarity",
+    "pack_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

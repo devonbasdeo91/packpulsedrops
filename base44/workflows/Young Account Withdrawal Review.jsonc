@@ -1,0 +1,97 @@
+{
+  "name": "Young Account Withdrawal Review",
+  "description": "When a WithdrawalRequest is created, checks the user's account age. If less than 30 days old, an AI agent verifies their trade history for suspicious patterns (wash trading, value imbalance, rapid clustering, pull-to-trade draining). If the agent flags the account, holds the withdrawal and notifies admins for manual review; if clean, auto-approves the payout. Withdrawals from accounts 30+ days old are skipped \u2014 handled by the existing Withdrawal Request Review and Large Withdrawal Fraud Check workflows.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "WithdrawalRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "young_account_withdrawal_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "verify_trades": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "verify-young-account-trades",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route_verdict",
+          "x-base44": {
+            "title": "Verify young account",
+            "description": "Check account age + AI-verify trade history"
+          }
+        }
+      },
+      {
+        "route_verdict": {
+          "switch": [
+            {
+              "when": "${ .verify_trades.skip == true }",
+              "then": "end"
+            },
+            {
+              "when": "${ .verify_trades.flagged == true }",
+              "then": "escalate"
+            },
+            {
+              "when": "${ true }",
+              "then": "approve"
+            }
+          ],
+          "x-base44": {
+            "title": "Agent verdict",
+            "description": "Route based on flagged/clean/skip"
+          }
+        }
+      },
+      {
+        "escalate": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "escalate-withdrawal-to-agent",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Hold + notify admin",
+            "description": "Flagged \u2014 escalate for manual review"
+          }
+        }
+      },
+      {
+        "approve": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auto-approve-withdrawal",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Approve payout",
+            "description": "Agent verified \u2014 transfer funds"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "Stuck Trade Auto-Decline",
+  "description": "When a new trade is created as pending, waits 7 days. If the trade is still pending after 7 days, auto-declines it and notifies both parties. Replaces the scheduled auto-healer's stuck-trade check \u2014 fires only when a trade is actually created, not on a wasteful schedule.",
+  "trigger": {
+    "condition": "${ .trigger.data.status == \"pending\" }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Trade"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "stuck_trade_auto_decline",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "wait_7d": {
+          "wait": "P7D",
+          "then": "heal",
+          "x-base44": {
+            "title": "Wait 7 days",
+            "description": "Durable wait \u2014 survives restarts"
+          }
+        }
+      },
+      {
+        "heal": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "heal-stuck-trade",
+            "args": {
+              "trade_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Decline if still pending",
+            "description": "Auto-decline + notify both parties"
+          }
+        }
+      }
+    ]
+  }
+}

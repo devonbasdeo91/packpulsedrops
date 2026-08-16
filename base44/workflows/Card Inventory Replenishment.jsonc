@@ -1,0 +1,47 @@
+{
+  "description": "Checks all packs every 6 hours and replenishes any with fewer than 20 cards back up to 33, generating new cards with weighted rarities so the pull distribution stays balanced.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "card_inventory_replenishment",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "replenish": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "replenish-card-inventory",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Replenish card inventory",
+            "description": "Top up packs with fewer than 20 cards"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Card Inventory Replenishment",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 6,
+      "interval_unit": "hours",
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

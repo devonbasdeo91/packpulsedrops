@@ -1,0 +1,44 @@
+{
+  "name": "DailyRewardClaim",
+  "type": "object",
+  "properties": {
+    "claim_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Calendar day the reward was claimed (YYYY-MM-DD)"
+    },
+    "gems_awarded": {
+      "type": "integer",
+      "default": 250
+    },
+    "streak": {
+      "type": "integer",
+      "default": 1,
+      "description": "Streak count at the time of this claim"
+    }
+  },
+  "required": [
+    "claim_date",
+    "gems_awarded"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "name": "Listing",
+  "type": "object",
+  "properties": {
+    "card_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "yugioh",
+        "baseball",
+        "pokemon",
+        "dragonball",
+        "digimon",
+        "basketball",
+        "naruto",
+        "bleach",
+        "football",
+        "soccer",
+        "cricket",
+        "tennis",
+        "wnba",
+        "nhl",
+        "golf",
+        "badminton",
+        "tabletennis",
+        "swimming",
+        "trackfield",
+        "f1"
+      ]
+    },
+    "rarity": {
+      "type": "string"
+    },
+    "subset": {
+      "type": "string"
+    },
+    "value_gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "ask_price_gems": {
+      "type": "integer"
+    },
+    "seller_id": {
+      "type": "string"
+    },
+    "seller_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "sold",
+        "traded",
+        "cancelled"
+      ],
+      "default": "active"
+    },
+    "buyer_id": {
+      "type": "string"
+    },
+    "buyer_name": {
+      "type": "string"
+    },
+    "sold_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "withdrawal_request_id": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "views": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of unique visitor views (incremented once per browser session via track-listing-view). Used by the Zero View Price Suggestion workflow to identify listings with no interest."
+    },
+    "overpriced_notified_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last date the seller was emailed that their listing was priced significantly above the market average. Used by the Overpriced Listing Alert workflow to avoid spamming (re-notifies after 14 days)."
+    }
+  },
+  "required": [
+    "card_name",
+    "category",
+    "rarity",
+    "ask_price_gems",
+    "seller_id",
+    "status"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

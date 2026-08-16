@@ -1,0 +1,85 @@
+{
+  "name": "GuestPurchase",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "Lowercased email of the guest buyer"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "pack",
+        "gems",
+        "card"
+      ]
+    },
+    "pack_id": {
+      "type": "string"
+    },
+    "tier": {
+      "type": "string"
+    },
+    "gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "card_id": {
+      "type": "string"
+    },
+    "card_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "rarity": {
+      "type": "string"
+    },
+    "value_gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "subset": {
+      "type": "string"
+    },
+    "stripe_session_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "redeemed"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "email",
+    "type",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

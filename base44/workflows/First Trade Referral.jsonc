@@ -1,0 +1,86 @@
+{
+  "name": "First Trade Referral",
+  "description": "When a user completes their first accepted trade, checks if they were referred. If so, waits 24 hours to confirm the trade wasn't reversed, then grants milestone bonus gems to both the new user and their referrer.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Trade",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"accepted\" and .trigger.old_data.status != \"accepted\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "first_trade_referral",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_first_trade": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-first-trade",
+            "args": {
+              "trade_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route_on_eligibility",
+          "x-base44": {
+            "title": "Check first trade + referral",
+            "description": "Is either party a referred user completing their first trade?"
+          }
+        }
+      },
+      {
+        "route_on_eligibility": {
+          "switch": [
+            {
+              "when": "${ .check_first_trade.proceed == true }",
+              "then": "wait_24h"
+            },
+            {
+              "when": "${ true }",
+              "then": "end"
+            }
+          ],
+          "x-base44": {
+            "title": "Eligible?",
+            "description": "Branch on first-trade referral eligibility"
+          }
+        }
+      },
+      {
+        "wait_24h": {
+          "wait": "PT24H",
+          "then": "grant_bonus",
+          "x-base44": {
+            "title": "Wait 24 hours",
+            "description": "Hold to confirm the trade isn't reversed"
+          }
+        }
+      },
+      {
+        "grant_bonus": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "grant-referral-trade-bonus",
+            "args": {
+              "trade_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Grant referral bonus",
+            "description": "Re-verify trade, then bonus both parties"
+          }
+        }
+      }
+    ]
+  }
+}

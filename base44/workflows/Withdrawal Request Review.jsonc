@@ -1,0 +1,190 @@
+{
+  "trigger": {
+    "condition": "${ .trigger.data.amount_usd <= 500 }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "WithdrawalRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "withdrawal_request_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_age": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-withdrawal-account-age",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route_age",
+          "x-base44": {
+            "title": "Check account age",
+            "description": "Young accounts are handled by the Young Account Withdrawal Review workflow"
+          }
+        }
+      },
+      {
+        "route_age": {
+          "switch": [
+            {
+              "when": "${ .check_age.young_account == true }",
+              "then": "end"
+            },
+            {
+              "when": "${ true }",
+              "then": "check_verification"
+            }
+          ],
+          "x-base44": {
+            "title": "Young account?",
+            "description": "Skip if < 30 days old"
+          }
+        }
+      },
+      {
+        "check_verification": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-withdrawal-verification",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route",
+          "x-base44": {
+            "title": "Check account verification",
+            "description": "Is the seller's bank account verified?"
+          }
+        }
+      },
+      {
+        "route": {
+          "switch": [
+            {
+              "when": "${ .check_verification.verified == true }",
+              "then": "approve"
+            },
+            {
+              "when": "${ true }",
+              "then": "notify_and_hold"
+            }
+          ],
+          "x-base44": {
+            "title": "Verified?",
+            "description": "Branch on verification status"
+          }
+        }
+      },
+      {
+        "approve": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auto-approve-withdrawal",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Approve payout",
+            "description": "Transfer funds to seller"
+          }
+        }
+      },
+      {
+        "notify_and_hold": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notify-admin-withdrawal",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "hold_24h",
+          "x-base44": {
+            "title": "Notify admins",
+            "description": "Alert admins about the hold"
+          }
+        }
+      },
+      {
+        "hold_24h": {
+          "wait": "PT24H",
+          "then": "recheck",
+          "x-base44": {
+            "title": "Hold 24 hours",
+            "description": "Durable wait before re-check"
+          }
+        }
+      },
+      {
+        "recheck": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-withdrawal-verification",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route_after_hold",
+          "x-base44": {
+            "title": "Re-check verification",
+            "description": "Has the account been verified yet?"
+          }
+        }
+      },
+      {
+        "route_after_hold": {
+          "switch": [
+            {
+              "when": "${ .recheck.verified == true }",
+              "then": "approve_after_hold"
+            },
+            {
+              "when": "${ true }",
+              "then": "end"
+            }
+          ],
+          "x-base44": {
+            "title": "Verified now?",
+            "description": "Branch after the hold"
+          }
+        }
+      },
+      {
+        "approve_after_hold": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auto-approve-withdrawal",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Approve payout",
+            "description": "Transfer funds after hold"
+          }
+        }
+      }
+    ]
+  },
+  "description": "When a new WithdrawalRequest (\u2264$500) is created, first checks the account age \u2014 young accounts (< 30 days) are skipped and handled by the Young Account Withdrawal Review workflow. For accounts 30+ days old, checks the user's connected bank account verification. If verified, auto-approves the payout; if not, notifies admins and holds the request for 24 hours before re-checking.",
+  "name": "Withdrawal Request Review"
+}

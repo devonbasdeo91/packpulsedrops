@@ -1,0 +1,51 @@
+{
+  "description": "When a guest makes a purchase, waits 24 hours to give them time to register and redeem. Then checks if they've completed a DailyChallenge \u2014 if not, sends an in-app ChatMessage encouraging them to try their first challenge with a 100 gem bonus offer valid for 48 hours.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "guest_challenge_incentive",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "wait_24h": {
+          "wait": "PT24H",
+          "then": "check_challenge",
+          "x-base44": {
+            "title": "Wait 24 hours",
+            "description": "Give the guest time to register and redeem their purchase"
+          }
+        }
+      },
+      {
+        "check_challenge": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-guest-challenge-incentive",
+            "args": {
+              "guest_purchase_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check + send incentive",
+            "description": "If registered but no challenge completed, send encouragement message"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "GuestPurchase"
+    }
+  },
+  "name": "Guest Challenge Incentive"
+}

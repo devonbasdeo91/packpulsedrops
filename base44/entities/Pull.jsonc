@@ -1,0 +1,100 @@
+{
+  "name": "Pull",
+  "type": "object",
+  "properties": {
+    "card_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "yugioh",
+        "baseball",
+        "pokemon",
+        "dragonball",
+        "digimon",
+        "basketball",
+        "naruto",
+        "bleach",
+        "football",
+        "soccer",
+        "cricket",
+        "tennis",
+        "wnba",
+        "nhl",
+        "golf",
+        "badminton",
+        "tabletennis",
+        "swimming",
+        "trackfield",
+        "f1"
+      ]
+    },
+    "rarity": {
+      "type": "string"
+    },
+    "value_gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "pack_name": {
+      "type": "string"
+    },
+    "subset": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "card_name",
+    "rarity",
+    "category"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

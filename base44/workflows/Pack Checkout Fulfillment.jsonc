@@ -1,0 +1,93 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "app_payment",
+      "events": [
+        "payment_succeeded"
+      ]
+    }
+  },
+  "description": "When a Stripe checkout for a booster pack succeeds, generates artwork for all cards in the pack, marks the pack Ready, and emails the buyer.",
+  "name": "Pack Checkout Fulfillment",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "pack_checkout_fulfillment",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "resolve": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "resolve-pack-checkout",
+            "args": {
+              "transaction_id": "${ .trigger.provider_transaction_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route",
+          "x-base44": {
+            "title": "Resolve checkout",
+            "description": "Is this a pack purchase? Get pack + user"
+          }
+        }
+      },
+      {
+        "route": {
+          "switch": [
+            {
+              "when": "${ .resolve.is_pack == true }",
+              "then": "generate"
+            },
+            {
+              "when": "${ true }",
+              "then": "end"
+            }
+          ],
+          "x-base44": {
+            "title": "Pack purchase?",
+            "description": "Ignore non-pack payments"
+          }
+        }
+      },
+      {
+        "generate": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "generate-pack-art",
+            "args": {
+              "pack_id": "${ .resolve.pack_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "finalize",
+          "x-base44": {
+            "title": "Generate card art",
+            "description": "Artwork for every card in the pack"
+          }
+        }
+      },
+      {
+        "finalize": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "finalize-pack",
+            "args": {
+              "pack_id": "${ .resolve.pack_id }",
+              "user_id": "${ .resolve.user_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Mark Ready + notify",
+            "description": "Set pack status and email the buyer"
+          }
+        }
+      }
+    ]
+  }
+}

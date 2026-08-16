@@ -1,0 +1,47 @@
+{
+  "description": "Every 24 hours, the collection_organizer agent analyzes active Listings older than 7 days, reduces their prices, and notifies the sellers.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 0 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "stale_listing_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "review_stale": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "stale-listing-organizer",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Agent reviews stale listings",
+            "description": "collection_organizer analyzes >7-day-old listings, reduces prices & notifies sellers"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Stale Listing Review"
+}

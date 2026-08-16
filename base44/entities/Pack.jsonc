@@ -1,0 +1,90 @@
+{
+  "name": "Pack",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "yugioh",
+        "baseball",
+        "pokemon",
+        "dragonball",
+        "digimon",
+        "basketball",
+        "naruto",
+        "bleach",
+        "football",
+        "soccer",
+        "cricket",
+        "tennis",
+        "wnba",
+        "nhl",
+        "golf",
+        "badminton",
+        "tabletennis",
+        "swimming",
+        "trackfield",
+        "f1"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "price_gems": {
+      "type": "integer"
+    },
+    "price_usd": {
+      "type": "number"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "cards_per_pack": {
+      "type": "integer",
+      "default": 1
+    },
+    "bonus_card_chance": {
+      "type": "number",
+      "default": 0.0667
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Ready"
+      ],
+      "default": "Pending"
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "price_gems",
+    "image_url"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": null,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
