@@ -30,6 +30,7 @@ jobs:
           bundler-cache: true
 
       - name: Resolve App Store Connect credentials
+        id: resolve_credentials
         env:
           ASC_KEY_ID_SECRET: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID_SECRET: ${{ secrets.ASC_ISSUER_ID }}
@@ -40,14 +41,12 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID_SECRET: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID_SECRET: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-          DISTRIBUTION_CERTIFICATE_P12_SECRET: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12 }}
-          DISTRIBUTION_CERTIFICATE_PASSWORD_SECRET: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
         run: |
           set -euo pipefail
 
           asc_key_id="${ASC_KEY_ID_SECRET:-${APPSTORE_KEY_ID_SECRET:-${APP_STORE_CONNECT_API_KEY_ID_SECRET:-}}}"
           asc_issuer_id="${ASC_ISSUER_ID_SECRET:-${APPSTORE_ISSUER_ID_SECRET:-${APP_STORE_CONNECT_ISSUER_ID_SECRET:-}}}"
-          key_secret="${ASC_PRIVATE_KEY_SECRET:-${APPSTORE_PRIVATE_KEY_SECRET:-${APP_STORE_CONNECT_API_KEY_SECRET:-${DISTRIBUTION_CERTIFICATE_P12_SECRET:-}}}}"
+          key_secret="${ASC_PRIVATE_KEY_SECRET:-${APPSTORE_PRIVATE_KEY_SECRET:-${APP_STORE_CONNECT_API_KEY_SECRET:-}}}"
 
           if [ -z "$asc_key_id" ]; then
             echo "::error::Missing App Store Connect key id. Set one of: ASC_KEY_ID, APPSTORE_KEY_ID, APP_STORE_CONNECT_API_KEY_ID."
@@ -64,6 +63,7 @@ jobs:
             exit 1
           fi
 
+          echo "::add-mask::$key_secret"
           private_key_content=""
           if printf '%s' "$key_secret" | grep -q "BEGIN .*PRIVATE KEY"; then
             private_key_content="$key_secret"
@@ -74,33 +74,25 @@ jobs:
             fi
           fi
 
-          if [ -z "$private_key_content" ] && [ -n "${DISTRIBUTION_CERTIFICATE_PASSWORD_SECRET:-}" ]; then
-            if printf '%s' "$key_secret" | base64 --decode > /tmp/cert.p12 2>/dev/null; then
-              if openssl pkcs12 -in /tmp/cert.p12 -nocerts -nodes -passin "pass:${DISTRIBUTION_CERTIFICATE_PASSWORD_SECRET}" 2>/dev/null \
-                | openssl pkcs8 -topk8 -nocrypt -out /tmp/private_key.pem 2>/dev/null; then
-                private_key_content="$(cat /tmp/private_key.pem)"
-              fi
-            fi
-          fi
-
           if [ -z "$private_key_content" ]; then
             echo "::error::Could not parse App Store Connect private key. Provide raw or base64 .p8 key content in ASC_PRIVATE_KEY/APPSTORE_PRIVATE_KEY/APP_STORE_CONNECT_API_KEY."
             exit 1
           fi
 
           asc_private_key_base64="$(printf '%s' "$private_key_content" | base64 | tr -d '\n')"
+          echo "::add-mask::$asc_private_key_base64"
 
-          {
-            echo "ASC_KEY_ID=$asc_key_id"
-            echo "ASC_ISSUER_ID=$asc_issuer_id"
-            echo "ASC_PRIVATE_KEY=$asc_private_key_base64"
-          } >> "$GITHUB_ENV"
+          echo "asc_key_id=$asc_key_id" >> "$GITHUB_OUTPUT"
+          echo "asc_issuer_id=$asc_issuer_id" >> "$GITHUB_OUTPUT"
+          echo "asc_private_key=$asc_private_key_base64" >> "$GITHUB_OUTPUT"
 
       - name: Resolve IPA path
+        id: resolve_ipa
         env:
           INPUT_IPA_URL: ${{ github.event.inputs.ipa_url }}
           INPUT_IPA_PATH: ${{ github.event.inputs.ipa_path }}
           SECRET_IPA_URL: ${{ secrets.IPA_URL }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -126,10 +118,15 @@ jobs:
             exit 1
           fi
 
-          echo "IPA_PATH=${ipa_path}" >> "$GITHUB_ENV"
+          echo "ipa_path=${ipa_path}" >> "$GITHUB_OUTPUT"
           echo "Resolved IPA: ${ipa_path}"
 
       - name: Upload to TestFlight via Fastlane
+        env:
+          ASC_KEY_ID: ${{ steps.resolve_credentials.outputs.asc_key_id }}
+          ASC_ISSUER_ID: ${{ steps.resolve_credentials.outputs.asc_issuer_id }}
+          ASC_PRIVATE_KEY: ${{ steps.resolve_credentials.outputs.asc_private_key }}
+          IPA_PATH: ${{ steps.resolve_ipa.outputs.ipa_path }}
         run: bundle exec fastlane ios upload_to_testflight
 
       - name: Notify on failure
