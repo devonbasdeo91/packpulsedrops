@@ -16,6 +16,12 @@ def ios_build_settings
     project = (Dir["ios/*.xcodeproj"] + Dir["*.xcodeproj"]).first.to_s if workspace.empty?
   end
 
+  if !workspace.empty?
+    project = ""
+  elsif !project.empty?
+    workspace = ""
+  end
+
   UI.user_error!("No Xcode workspace or project found. Commit the iOS project or set IOS_WORKSPACE/IOS_PROJECT.") if workspace.empty? && project.empty?
 
   if scheme.empty?
@@ -33,6 +39,25 @@ def ios_build_settings
   }
 end
 
+def env_true_unless_false(key)
+  value = ENV[key].to_s.strip.downcase
+  return true if value.empty?
+
+  value != "false"
+end
+
+def ipa_output_settings(settings)
+  output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
+  output_directory = "build/ios" if output_directory.empty?
+  output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
+  output_name = "#{settings[:scheme]}.ipa" if output_name.empty?
+
+  {
+    output_directory: output_directory,
+    output_name: output_name
+  }
+end
+
 platform :ios do
   desc "Build the iOS app for App Store distribution"
   lane :build do
@@ -44,17 +69,14 @@ platform :ios do
     setup_ci if ENV["CI"]
 
     settings = ios_build_settings
-    output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
-    output_directory = "build/ios" if output_directory.empty?
-    output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
-    output_name = "#{settings[:scheme]}.ipa" if output_name.empty?
+    output_settings = ipa_output_settings(settings)
 
     build_options = {
       clean: true,
       scheme: settings[:scheme],
       export_method: ENV.fetch("IOS_EXPORT_METHOD", "app-store"),
-      output_directory: output_directory,
-      output_name: output_name,
+      output_directory: output_settings[:output_directory],
+      output_name: output_settings[:output_name],
       silent: false
     }
 
@@ -68,7 +90,7 @@ platform :ios do
     build_options[:configuration] = configuration unless configuration.empty?
 
     build_app(**build_options)
-    UI.success("Created iOS build at #{File.join(output_directory, output_name)}")
+    UI.success("Created iOS build at #{File.join(output_settings[:output_directory], output_settings[:output_name])}")
   end
 
   desc "Upload the iOS build to App Store Connect"
@@ -79,13 +101,10 @@ platform :ios do
     require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
 
     settings = ios_build_settings
-    output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
-    output_directory = "build/ios" if output_directory.empty?
-    output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
-    output_name = "#{settings[:scheme]}.ipa" if output_name.empty?
+    output_settings = ipa_output_settings(settings)
 
     ipa_path = ENV["IPA_PATH"].to_s.strip
-    ipa_path = File.join(output_directory, output_name) if ipa_path.empty?
+    ipa_path = File.join(output_settings[:output_directory], output_settings[:output_name]) if ipa_path.empty?
 
     UI.user_error!("IPA not found at #{ipa_path}. Run `fastlane build` first or set IPA_PATH.") unless File.exist?(ipa_path)
 
@@ -94,8 +113,8 @@ platform :ios do
       app_identifier: ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"],
       apple_id: ENV["FASTLANE_USER"],
       team_id: ENV["FASTLANE_TEAM_ID"],
-      skip_metadata: ENV["DELIVER_SKIP_METADATA"] != "false",
-      skip_screenshots: ENV["DELIVER_SKIP_SCREENSHOTS"] != "false",
+      skip_metadata: env_true_unless_false("DELIVER_SKIP_METADATA"),
+      skip_screenshots: env_true_unless_false("DELIVER_SKIP_SCREENSHOTS"),
       force: true
     )
 

@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   distribute:
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 90
     env:
       FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
@@ -53,6 +53,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
+          # Fastlane is installed directly via `gem install` below, so Bundler caching is intentionally disabled.
           bundler-cache: false
 
       - name: Install Fastlane
@@ -84,16 +85,40 @@ jobs:
             exit 1
           fi
 
+      - name: Install JavaScript dependencies
+        if: ${{ hashFiles('package.json') != '' }}
+        run: |
+          set -euo pipefail
+
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Install CocoaPods dependencies
+        if: ${{ hashFiles('ios/Podfile', 'Podfile') != '' }}
+        run: |
+          set -euo pipefail
+
+          pod_directory="ios"
+          if [ -f Podfile ]; then
+            pod_directory="."
+          fi
+
+          cd "$pod_directory"
+          pod install --repo-update
+
       - name: Run fastlane build
         run: |
           set -euo pipefail
           mkdir -p fastlane/logs
-          fastlane build 2>&1 | tee fastlane/logs/build.log
+          fastlane ios build 2>&1 | tee fastlane/logs/build.log
 
       - name: Run fastlane deliver
         run: |
           set -euo pipefail
-          fastlane deliver 2>&1 | tee fastlane/logs/deliver.log
+          fastlane ios deliver 2>&1 | tee fastlane/logs/deliver.log
 
       - name: Upload Fastlane logs
         if: always()
