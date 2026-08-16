@@ -5,6 +5,10 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  APP_ARCHIVE: pack-pulse-drops (7).zip
 
 jobs:
   build:
@@ -15,26 +19,113 @@ jobs:
         node-version: [18.x]
 
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
+    - name: Prepare app workspace
+      id: prepare
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "$APP_ARCHIVE" ]; then
+          echo "::error::Missing application archive: $APP_ARCHIVE"
+          exit 1
+        fi
+
+        app_dir="$RUNNER_TEMP/packpulsedrops-app"
+        rm -rf "$app_dir"
+        mkdir -p "$app_dir"
+        unzip -q "$APP_ARCHIVE" -d "$app_dir"
+
+        for required in package.json package-lock.json; do
+          if [ ! -f "$required" ]; then
+            echo "::error::Missing required repository file: $required"
+            exit 1
+          fi
+          cp "$required" "$app_dir/$required"
+        done
+
+        if [ -f ".npmrc" ]; then
+          cp ".npmrc" "$app_dir/.npmrc"
+        fi
+
+        for required in package.json package-lock.json src/main.jsx vite.config.js; do
+          if [ ! -e "$app_dir/$required" ]; then
+            echo "::error file=$required::Prepared app workspace is missing '$required'"
+            exit 1
+          fi
+        done
+
+        echo "APP_DIR=$app_dir" >> "$GITHUB_ENV"
+        echo "app_dir=$app_dir" >> "$GITHUB_OUTPUT"
+        echo "Prepared app workspace at $app_dir"
+
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    
+        cache: npm
+        cache-dependency-path: package-lock.json
+
+    - name: Validate Node.js compatibility
+      run: |
+        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(`Using compatible Node.js ${process.version}`);"
+
+    - name: Validate build script configuration
+      working-directory: ${{ env.APP_DIR }}
+      run: |
+        node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (!pkg.scripts || !pkg.scripts.build) { console.error('Missing required npm script: build'); process.exit(1); } console.log('Detected npm scripts:', Object.keys(pkg.scripts).join(', '));"
+
     - name: Install dependencies
-      run: npm install
-    
+      working-directory: ${{ env.APP_DIR }}
+      run: npm ci
+
     - name: Build application
+      working-directory: ${{ env.APP_DIR }}
       run: npm run build
-    
-    - name: Run tests
-      run: npm test -- --passWithNoTests --watchAll=false
-    
+
+    - name: Run tests when configured
+      working-directory: ${{ env.APP_DIR }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        if node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1);"; then
+          npm test -- --passWithNoTests --watchAll=false
+        else
+          echo "No npm test script is defined; skipping tests."
+        fi
+
+    - name: Verify build output
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ ! -d "${APP_DIR}/dist" ]; then
+          echo "::error::Build output directory '${APP_DIR}/dist' was not created."
+          exit 1
+        fi
+        ls -la "${APP_DIR}/dist"
+
+    - name: Summarize build failure
+      if: failure()
+      shell: bash
+      run: |
+        {
+          echo "## Build workflow diagnostics"
+          echo "- Node.js: $(node --version)"
+          echo "- npm: $(npm --version)"
+          echo "- Archive present: $([ -f "$APP_ARCHIVE" ] && echo yes || echo no)"
+          echo "- Prepared app directory: ${APP_DIR:-not-created}"
+          if [ -n "${APP_DIR:-}" ] && [ -d "${APP_DIR:-}" ]; then
+            echo
+            echo '```text'
+            find "${APP_DIR}" -maxdepth 2 -type f | sort | sed -n '1,80p'
+            echo '```'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: build
-        path: build/
+        path: ${{ env.APP_DIR }}/dist/
