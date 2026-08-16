@@ -79,6 +79,20 @@ You will also need code-signing certificates and provisioning profiles available
 
 The archived web app source also now includes a Capacitor iOS wrapper (`capacitor.config.ts` and `ios/`) so GitHub Actions can sync and build an iOS project before Fastlane uploads the resulting IPA.
 
+### TestFlight IPA upload workflow
+
+The repository also includes `.github/workflows/deploy.yml`, which runs on pushes to `main` or manually to:
+
+- Extract the ZIP archive committed at the repository root into `extracted_app`
+- Search recursively for the first `.ipa` file inside `extracted_app`
+- Upload that IPA to App Store Connect with `apple-actions/upload-testflight-build`
+
+Configure these GitHub Actions secrets before running it:
+
+- `APPSTORE_ISSUER_ID`
+- `APPSTORE_KEY_ID`
+- `APPSTORE_PRIVATE_KEY`
+
 ## License
 
 MIT

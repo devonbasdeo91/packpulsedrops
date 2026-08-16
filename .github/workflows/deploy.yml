@@ -47,13 +47,18 @@ jobs:
             exit 1
           fi
 
-          echo "ipa_path=$ipa_path" >> "$GITHUB_OUTPUT"
+          {
+            echo "ipa_path<<EOF"
+            echo "$ipa_path"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload IPA to TestFlight
-        uses: apple-actions/upload-testflight-build@v1
+        uses: apple-actions/upload-testflight-build@v5
         with:
           app-path: ${{ steps.find_ipa.outputs.ipa_path }}
           app-type: ios
+          backend: AppStoreAPI
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
