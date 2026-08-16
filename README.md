@@ -62,7 +62,7 @@ Configure these GitHub Actions secrets before running it:
 - `FASTLANE_APPLE_APPLICATION_IDENTIFIER`
 - `FASTLANE_TEAM_ID`
 
-For authentication, configure one of:
+For authentication, configure all of the following for API key authentication:
 
 - `APP_STORE_CONNECT_API_KEY`
 - `APP_STORE_CONNECT_API_KEY_ID`
@@ -70,7 +70,7 @@ For authentication, configure one of:
 
 `APP_STORE_CONNECT_API_KEY` can be stored as either raw `.p8` content (including escaped `\n`) or base64-encoded `.p8` content.
 
-or:
+Or configure both of the following for Apple ID authentication:
 
 - `FASTLANE_USER`
 - `FASTLANE_PASSWORD`

@@ -45,14 +45,17 @@ def normalized_app_store_connect_api_key_content
 end
 
 def app_store_connect_api_key_file_path
+  return @app_store_connect_api_key_file_path if defined?(@app_store_connect_api_key_file_path) && @app_store_connect_api_key_file_path
+
   key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
   issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
   key_content = normalized_app_store_connect_api_key_content
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
 
   path = File.join(Dir.tmpdir, "asc-key-#{key_id}.p8")
-  File.write(path, key_content)
-  path
+  File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(key_content) }
+  at_exit { File.delete(path) if File.exist?(path) }
+  @app_store_connect_api_key_file_path = path
 end
 
 def require_fastlane_user_auth!
