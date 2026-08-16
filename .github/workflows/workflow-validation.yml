@@ -1,0 +1,109 @@
+name: Workflow Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - ".github/workflows/**"
+      - ".github/WORKFLOW_ERROR_HANDLER.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".npmrc"
+      - "pack-pulse-drops (7).zip"
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - ".github/workflows/**"
+      - ".github/WORKFLOW_ERROR_HANDLER.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".npmrc"
+      - "pack-pulse-drops (7).zip"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Lint workflow files
+      run: |
+        if command -v actionlint &>/dev/null; then
+          actionlint
+        else
+          echo "actionlint not available on this runner; skipping workflow lint."
+        fi
+
+    - name: Prepare app source
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [ -f package.json ] && [ -f index.html ]; then
+          echo "APP_DIR=." >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+        if [ -z "$archive" ]; then
+          echo "::error::No package.json or source archive found at the repository root."
+          exit 1
+        fi
+
+        rm -rf extracted-app
+        mkdir -p extracted-app
+        unzip -q "$archive" -d extracted-app
+
+        if [ ! -f extracted-app/package.json ]; then
+          echo "::error::Source archive '$archive' does not contain a package.json at its root."
+          exit 1
+        fi
+
+        echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          extracted-app/package-lock.json
+
+    - name: Validate Node.js compatibility
+      run: |
+        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(\`Validated Node.js \${process.version}\`);"
+
+    - name: Validate npm configuration
+      working-directory: ${{ env.APP_DIR }}
+      run: |
+        node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); const missing = ['build'].filter((name) => !pkg.scripts || !pkg.scripts[name]); if (missing.length) { console.error(\`Missing required npm scripts: \${missing.join(', ')}\`); process.exit(1); } console.log('Dependency and script metadata look valid.');"
+
+    - name: Install dependencies
+      working-directory: ${{ env.APP_DIR }}
+      run: npm ci
+
+    - name: Build application
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run build
+
+    - name: Verify build output directory
+      shell: bash
+      run: |
+        set -euo pipefail
+        dist="${APP_DIR}/dist"
+        build="${APP_DIR}/build"
+        if [ ! -d "$dist" ] && [ ! -d "$build" ]; then
+          echo "::error::Build output directory was not created (checked dist/ and build/)."
+          exit 1
+        fi
+        ls -la "$dist" 2>/dev/null || ls -la "$build"

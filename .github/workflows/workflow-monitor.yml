@@ -1,0 +1,194 @@
+name: Workflow Monitor
+
+on:
+  workflow_run:
+    workflows:
+      - Build and Test
+      - Workflow Validation
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    if: >
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'neutral' &&
+      github.event.workflow_run.name != github.workflow
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Capture failed workflow diagnostics
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUN_ID: ${{ github.event.workflow_run.id }}
+        RUN_NAME: ${{ github.event.workflow_run.name }}
+        RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        RUN_URL: ${{ github.event.workflow_run.html_url }}
+        WEBHOOK_URL: ${{ secrets.WORKFLOW_FAILURE_WEBHOOK_URL }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        mkdir -p monitor-output
+        gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" > monitor-output/run.json
+        gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" > monitor-output/jobs.json
+        gh run view "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --log-failed > monitor-output/failed.log || true
+
+        python - <<'PY'
+        import json
+        import os
+        import re
+
+        with open("monitor-output/run.json", "r", encoding="utf-8") as handle:
+            run = json.load(handle)
+        with open("monitor-output/jobs.json", "r", encoding="utf-8") as handle:
+            jobs = json.load(handle).get("jobs", [])
+        try:
+            with open("monitor-output/failed.log", "r", encoding="utf-8") as handle:
+                failed_log = handle.read().strip()
+        except FileNotFoundError:
+            failed_log = ""
+
+        failed_steps = []
+        for job in jobs:
+            if job.get("conclusion") not in {"failure", "cancelled", "startup_failure", "timed_out", "action_required"}:
+                continue
+            for step in job.get("steps", []):
+                if step.get("conclusion") == "failure":
+                    failed_steps.append(f"{job['name']}: {step['name']}")
+
+        patterns = [
+            (
+                re.compile(r"Dependencies lock file is not found|package-lock\\.json", re.IGNORECASE),
+                "workflow lockfile is missing or unreadable",
+                "Commit `package-lock.json` at the repository root and ensure workflow cache paths point at it.",
+            ),
+            (
+                re.compile(r"Missing application archive|Prepared app workspace is missing|Missing required repository file", re.IGNORECASE),
+                "workflow prerequisites are missing",
+                "Restore the archived application files or the required root npm metadata before rerunning CI.",
+            ),
+            (
+                re.compile(r"Build output directory|No files were found with the provided path", re.IGNORECASE),
+                "build output could not be collected",
+                "Confirm the app still emits `dist/` and keep the artifact upload path aligned with the Vite output directory.",
+            ),
+            (
+                re.compile(r"Missing required npm script|Missing script", re.IGNORECASE),
+                "required npm scripts are missing",
+                "Add the expected npm scripts to `package.json` or teach the workflow to skip that stage when it is intentionally absent.",
+            ),
+        ]
+
+        combined_text = "\n".join(
+            part for part in [run.get("display_title", ""), failed_log, "\n".join(failed_steps)] if part
+        )
+        issue_title = ""
+        issue_hint = ""
+        for pattern, title, hint in patterns:
+            if pattern.search(combined_text):
+                issue_title = f"Workflow failure: {title}"
+                issue_hint = hint
+                break
+
+        excerpt_lines = [line for line in failed_log.splitlines() if line.strip()][:80]
+        excerpt = "\n".join(excerpt_lines) if excerpt_lines else "No failed log lines were captured."
+
+        summary_lines = [
+            "## Workflow failure summary",
+            f"- Workflow: {run.get('name')}",
+            f"- Conclusion: {run.get('conclusion')}",
+            f"- Branch: {run.get('head_branch')}",
+            f"- Commit: {run.get('head_sha')}",
+            f"- Run URL: {run.get('html_url')}",
+        ]
+        if failed_steps:
+            summary_lines.append("- Failed steps:")
+            summary_lines.extend([f"  - {step}" for step in failed_steps])
+        if issue_title:
+            summary_lines.append(f"- Detected issue pattern: {issue_title}")
+
+        summary_lines.extend([
+            "",
+            "### Failed log excerpt",
+            "```text",
+            excerpt,
+            "```",
+        ])
+
+        body_lines = [
+            f"Automated workflow monitoring detected a failed run for **{run.get('name')}**.",
+            "",
+            f"- Conclusion: `{run.get('conclusion')}`",
+            f"- Branch: `{run.get('head_branch')}`",
+            f"- Commit: `{run.get('head_sha')}`",
+            f"- Run URL: {run.get('html_url')}",
+        ]
+        if failed_steps:
+            body_lines.extend(["", "### Failed steps", *[f"- {step}" for step in failed_steps]])
+        if issue_hint:
+            body_lines.extend(["", "### Suggested repair", issue_hint])
+        body_lines.extend(["", "### Failed log excerpt", "```text", excerpt, "```"])
+
+        with open("monitor-output/summary.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join(summary_lines) + "\n")
+        with open("monitor-output/issue_title.txt", "w", encoding="utf-8") as handle:
+            handle.write(issue_title)
+        with open("monitor-output/issue_body.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join(body_lines) + "\n")
+        PY
+
+        cat monitor-output/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+        issue_title="$(cat monitor-output/issue_title.txt)"
+        if [ -n "$issue_title" ]; then
+          existing_issue="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --search "\"${issue_title}\" in:title" --json number --jq '.[0].number // empty')"
+          if [ -z "$existing_issue" ]; then
+            gh issue create \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "$issue_title" \
+              --body-file monitor-output/issue_body.md
+          else
+            echo "Open issue #${existing_issue} already tracks this common workflow failure."
+          fi
+        fi
+
+        if [ -n "${WEBHOOK_URL:-}" ]; then
+          python - <<'PY'
+        import json
+        import os
+        import urllib.request
+
+        with open("monitor-output/summary.md", "r", encoding="utf-8") as handle:
+            summary = handle.read()
+
+        request = urllib.request.Request(
+            os.environ["WEBHOOK_URL"],
+            data=json.dumps({
+                "repository": os.environ["GITHUB_REPOSITORY"],
+                "run_id": os.environ["RUN_ID"],
+                "workflow": os.environ["RUN_NAME"],
+                "conclusion": os.environ["RUN_CONCLUSION"],
+                "url": os.environ["RUN_URL"],
+                "summary": summary,
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request) as response:
+            print(f"Webhook notification sent with HTTP {response.status}")
+        PY
+        else
+          echo "No WORKFLOW_FAILURE_WEBHOOK_URL secret is configured; skipped external notification."
+        fi
+
+    - name: Upload failure report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: workflow-failure-report-${{ github.event.workflow_run.id }}
+        path: monitor-output/

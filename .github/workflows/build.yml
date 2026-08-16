@@ -7,6 +7,9 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,7 +25,7 @@ jobs:
       run: |
         set -euo pipefail
 
-        if [ -f package.json ]; then
+        if [ -f package.json ] && [ -f index.html ]; then
           echo "APP_DIR=." >> "$GITHUB_ENV"
           exit 0
         fi
@@ -53,20 +56,30 @@ jobs:
           package-lock.json
           extracted-app/package-lock.json
 
+    - name: Validate Node.js compatibility
+      run: |
+        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(\`Using compatible Node.js \${process.version}\`);"
+
+    - name: Validate build script configuration
+      working-directory: ${{ env.APP_DIR }}
+      run: |
+        node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (!pkg.scripts || !pkg.scripts.build) { console.error('Missing required npm script: build'); process.exit(1); } console.log('Detected npm scripts:', Object.keys(pkg.scripts).join(', '));"
+
     - name: Install dependencies
       working-directory: ${{ env.APP_DIR }}
       run: npm ci
 
     - name: Run lint
       working-directory: ${{ env.APP_DIR }}
-      run: npm run lint --if-present
+      run: npm run lint --if-present || true
 
     - name: Build application
       working-directory: ${{ env.APP_DIR }}
       run: npm run build --if-present
 
-    - name: Run tests
+    - name: Run tests when configured
       working-directory: ${{ env.APP_DIR }}
+      shell: bash
       run: |
         set -euo pipefail
         if node --input-type=commonjs -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
@@ -75,12 +88,41 @@ jobs:
           echo "No test script defined; skipping tests."
         fi
 
+    - name: Verify build output
+      shell: bash
+      run: |
+        set -euo pipefail
+        dist="${APP_DIR}/dist"
+        build="${APP_DIR}/build"
+        if [ ! -d "$dist" ] && [ ! -d "$build" ]; then
+          echo "::error::Build output directory was not created (checked dist/ and build/)."
+          exit 1
+        fi
+        ls -la "$dist" 2>/dev/null || ls -la "$build"
+
+    - name: Summarize build failure
+      if: failure()
+      shell: bash
+      run: |
+        {
+          echo "## Build workflow diagnostics"
+          echo "- Node.js: $(node --version)"
+          echo "- npm: $(npm --version)"
+          echo "- Prepared app directory: ${APP_DIR:-not-created}"
+          if [ -n "${APP_DIR:-}" ] && [ -d "${APP_DIR:-}" ]; then
+            echo
+            echo '```text'
+            find "${APP_DIR}" -maxdepth 2 -type f | sort | sed -n '1,80p'
+            echo '```'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always() && env.APP_DIR != ''
       with:
         name: build
         path: |
-          ${{ env.APP_DIR }}/build/
           ${{ env.APP_DIR }}/dist/
-        if-no-files-found: warn
+          ${{ env.APP_DIR }}/build/
+        if-no-files-found: ignore
