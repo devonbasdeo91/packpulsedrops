@@ -1,5 +1,9 @@
 default_platform(:ios)
 
+require "base64"
+require "shellwords"
+require "tmpdir"
+
 def require_env!(key, description)
   value = ENV[key].to_s.strip
   UI.user_error!("Missing #{key} (#{description}). Configure it in GitHub Actions secrets.") if value.empty?
@@ -14,7 +18,7 @@ end
 def app_store_connect_api_key_from_env
   key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
   issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
-  key_content = ENV["APP_STORE_CONNECT_API_KEY"].to_s
+  key_content = normalized_app_store_connect_api_key_content
 
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
 
@@ -24,6 +28,31 @@ def app_store_connect_api_key_from_env
     key_content: key_content,
     is_key_content_base64: false
   )
+end
+
+def normalized_app_store_connect_api_key_content
+  key_content = ENV["APP_STORE_CONNECT_API_KEY"].to_s
+  return "" if key_content.strip.empty?
+
+  decoded = begin
+    Base64.strict_decode64(key_content)
+  rescue ArgumentError
+    nil
+  end
+
+  key_content = decoded if decoded&.include?("BEGIN")
+  key_content.gsub("\\n", "\n")
+end
+
+def app_store_connect_api_key_file_path
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  key_content = normalized_app_store_connect_api_key_content
+  return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
+
+  path = File.join(Dir.tmpdir, "asc-key-#{key_id}.p8")
+  File.write(path, key_content)
+  path
 end
 
 def require_fastlane_user_auth!
@@ -110,6 +139,22 @@ def ipa_output_settings(settings)
   }
 end
 
+def build_xcargs
+  team_id = require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
+  arguments = ["-allowProvisioningUpdates", "DEVELOPMENT_TEAM=#{team_id}"]
+
+  key_path = app_store_connect_api_key_file_path
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  if key_path && !key_id.empty? && !issuer_id.empty?
+    arguments << "-authenticationKeyPath #{Shellwords.escape(key_path)}"
+    arguments << "-authenticationKeyID #{Shellwords.escape(key_id)}"
+    arguments << "-authenticationKeyIssuerID #{Shellwords.escape(issuer_id)}"
+  end
+
+  arguments.join(" ")
+end
+
 platform :ios do
   desc "Build the iOS app for App Store distribution"
   lane :build do
@@ -129,7 +174,7 @@ platform :ios do
       export_method: ENV.fetch("IOS_EXPORT_METHOD", "app-store"),
       output_directory: output_settings[:output_directory],
       output_name: output_settings[:output_name],
-      xcargs: "-allowProvisioningUpdates",
+      xcargs: build_xcargs,
       silent: false
     }
 
