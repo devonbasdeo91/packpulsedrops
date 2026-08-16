@@ -78,6 +78,12 @@ jobs:
           rm -rf extracted-app
           mkdir -p extracted-app
           unzip -q "$archive" -d extracted-app
+
+          if [ ! -f extracted-app/package.json ]; then
+            echo "::error::Source archive '$archive' does not contain a package.json at its root."
+            exit 1
+          fi
+
           echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
 
       - name: Validate App Store configuration

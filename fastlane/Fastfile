@@ -18,8 +18,8 @@ def ios_build_settings
     workspace_patterns = ["#{app_dir}/ios/*.xcworkspace", "#{app_dir}/*.xcworkspace", "ios/*.xcworkspace", "*.xcworkspace"].uniq
     project_patterns = ["#{app_dir}/ios/*.xcodeproj", "#{app_dir}/*.xcodeproj", "ios/*.xcodeproj", "*.xcodeproj"].uniq
 
-    workspace = workspace_patterns.flat_map { |pattern| Dir[pattern] }.first.to_s
-    project = project_patterns.flat_map { |pattern| Dir[pattern] }.first.to_s if workspace.empty?
+    workspace = workspace_patterns.flat_map { |pattern| Dir[pattern] }.uniq.first.to_s
+    project = project_patterns.flat_map { |pattern| Dir[pattern] }.uniq.first.to_s if workspace.empty?
   end
 
   if !workspace.empty?
