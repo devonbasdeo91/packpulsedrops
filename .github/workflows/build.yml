@@ -17,6 +17,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
     - name: Prepare app source
       run: |
         set -euo pipefail
@@ -42,13 +47,6 @@ jobs:
         fi
 
         echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
-
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: npm
-        cache-dependency-path: extracted-app/package-lock.json
 
     - name: Install dependencies
       working-directory: ${{ env.APP_DIR }}
