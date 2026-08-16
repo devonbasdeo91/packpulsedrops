@@ -91,7 +91,7 @@ platform :ios do
     build_options[:configuration] = configuration unless configuration.empty?
 
     build_app(**build_options)
-    UI.success("Created iOS build at #{File.join(output_settings[:output_directory], output_settings[:output_name])}")
+    UI.success("Created iOS build at #{File.join(output_settings[:output_directory], "#{output_settings[:output_name]}.ipa")}")
   end
 
   desc "Upload the iOS build to App Store Connect"

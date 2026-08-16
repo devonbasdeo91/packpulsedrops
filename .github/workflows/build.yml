@@ -62,7 +62,13 @@ jobs:
 
     - name: Run tests
       working-directory: ${{ env.APP_DIR }}
-      run: npm run --if-present test -- --passWithNoTests --watchAll=false
+      run: |
+        set -euo pipefail
+        if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
+          npm run test -- --passWithNoTests --watchAll=false
+        else
+          echo "No test script defined; skipping tests."
+        fi
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
