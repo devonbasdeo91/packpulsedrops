@@ -50,15 +50,6 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
-      - name: Install Fastlane
-        run: gem install fastlane --no-document
-
-      - name: Set up App Store Connect API key
-        env:
-          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
-        run: |
-          echo "$ASC_PRIVATE_KEY" | base64 --decode > /tmp/AuthKey.p8
-
       - name: Run Fastlane lane
         env:
           APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
