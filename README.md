@@ -4,10 +4,9 @@ Trading Digital Cards application built with React.
 
 ## Project Structure
 
-- `src/` - Source code
-- `public/` - Static files
-- `components/` - React components
-- `build/` - Production build output
+- `pack-pulse-drops (7).zip` - Archived React/Vite app source checked in at the repository root
+- `.github/workflows/` - GitHub Actions workflows for CI and App Store distribution
+- `fastlane/` - Fastlane configuration for iOS build and App Store upload
 
 ## Getting Started
 
@@ -18,16 +17,18 @@ Trading Digital Cards application built with React.
 ### Installation
 
 ```bash
+unzip "pack-pulse-drops (7).zip" -d extracted-app
+cd extracted-app
 npm install
 ```
 
 ### Development
 
 ```bash
-npm start
+npm run dev
 ```
 
-The app will open at [http://localhost:3000](http://localhost:3000)
+The app will open at [http://localhost:5173](http://localhost:5173) by default.
 
 ### Build
 
@@ -35,13 +36,11 @@ The app will open at [http://localhost:3000](http://localhost:3000)
 npm run build
 ```
 
-This creates a production build in the `build` folder.
+This creates a production build in the `dist` folder.
 
 ### Testing
 
-```bash
-npm test
-```
+There is currently no automated test script in the archived app. CI installs dependencies, runs lint when available, builds the app, and skips tests when no `test` script is defined.
 
 ## Continuous Integration
 
