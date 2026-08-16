@@ -112,7 +112,6 @@ jobs:
           fi
 
       - name: Install JavaScript dependencies
-        if: ${{ hashFiles('package.json', '*.zip') != '' }}
         run: |
           set -euo pipefail
 
@@ -130,7 +129,6 @@ jobs:
           fi
 
       - name: Install CocoaPods dependencies
-        if: ${{ hashFiles('ios/Podfile', 'Podfile', '*.zip') != '' }}
         run: |
           set -euo pipefail
 
@@ -159,6 +157,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export APP_DIR="${APP_DIR:-.}"
           mkdir -p fastlane/logs
           fastlane ios build 2>&1 | tee fastlane/logs/build.log
           exit "${PIPESTATUS[0]}"
@@ -167,6 +166,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export APP_DIR="${APP_DIR:-.}"
           mkdir -p fastlane/logs
           fastlane ios deliver 2>&1 | tee fastlane/logs/deliver.log
           exit "${PIPESTATUS[0]}"
