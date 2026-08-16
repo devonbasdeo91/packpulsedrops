@@ -124,8 +124,17 @@ jobs:
           fi
 
           app_dir="${APP_DIR:-.}"
-          if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && \
-            ! find "$app_dir" -maxdepth 3 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) | grep -q .; then
+          if [ ! -d "$app_dir" ]; then
+            echo "::error::Resolved app directory '$app_dir' does not exist."
+            missing=1
+          fi
+
+          ios_project_candidates=""
+          if [ -d "$app_dir" ]; then
+            ios_project_candidates="$(find "$app_dir" -maxdepth 3 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) -print)"
+          fi
+
+          if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && [ -z "$ios_project_candidates" ]; then
             echo "::error::No Xcode workspace or project was found. Commit the iOS project or supply ios_workspace/ios_project when running the workflow."
             missing=1
           fi
@@ -201,7 +210,6 @@ jobs:
           export APP_DIR="${APP_DIR:-.}"
           mkdir -p fastlane/logs
           fastlane ios build 2>&1 | tee fastlane/logs/build.log
-          exit "${PIPESTATUS[0]}"
 
       - name: Run fastlane deliver
         shell: bash
@@ -210,7 +218,6 @@ jobs:
           export APP_DIR="${APP_DIR:-.}"
           mkdir -p fastlane/logs
           fastlane ios deliver 2>&1 | tee fastlane/logs/deliver.log
-          exit "${PIPESTATUS[0]}"
 
       - name: Upload Fastlane logs
         if: always()
