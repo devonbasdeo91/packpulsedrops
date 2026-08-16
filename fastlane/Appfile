@@ -1,4 +1,4 @@
-app_identifier(ENV["APP_IDENTIFIER"] || "com.packpulsedrops.app")
+app_identifier(ENV["APP_IDENTIFIER"] || "com.base6a7815213ea6e3d52ada68aa.app")
 apple_id(ENV["FASTLANE_USER"])
 itc_team_id(ENV["ITC_TEAM_ID"])
 team_id(ENV["TEAM_ID"])
