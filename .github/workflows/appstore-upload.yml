@@ -23,16 +23,30 @@ jobs:
             -o build/PackPulseDrops.ipa \
             "https://github.com/${{ github.repository }}/releases/download/v1.0/ios-2.130297.1.2.ipa"
 
+      - name: Extract private key from P12
+        env:
+          P12_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$P12_BASE64" | base64 --decode > /tmp/cert.p12
+          openssl pkcs12 -in /tmp/cert.p12 -nocerts -nodes -passin "pass:$P12_PASSWORD" \
+            | openssl pkcs8 -topk8 -nocrypt -out /tmp/private_key.pem
+          {
+            echo 'APPSTORE_PRIVATE_KEY<<EOF'
+            cat /tmp/private_key.pem
+            echo EOF
+          } >> "$GITHUB_ENV"
+
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
           app-path: build/PackPulseDrops.ipa
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          api-private-key: ${{ env.APPSTORE_PRIVATE_KEY }}
 
       - name: Notify on failure
         if: failure()
         run: |
           echo "::error::Upload to TestFlight failed. Check the logs above for details."
-          echo "::notice::Ensure APPSTORE_ISSUER_ID, APPSTORE_KEY_ID, and APPSTORE_PRIVATE_KEY secrets are set."
+          echo "::notice::Ensure APPSTORE_ISSUER_ID, APPSTORE_KEY_ID, DISTRIBUTION_CERTIFICATE_P12, and DISTRIBUTION_CERTIFICATE_PASSWORD secrets are set."
