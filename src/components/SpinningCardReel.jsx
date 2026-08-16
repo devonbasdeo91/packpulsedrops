@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
-import { Gem, CheckCircle2, Sparkles } from "lucide-react";
+import { Gem, CheckCircle2 } from "lucide-react";
 import TradingCard from "@/components/TradingCard";
 import CardFlip from "@/components/CardFlip";
 import { useHaptics } from "@/hooks/useHaptics";

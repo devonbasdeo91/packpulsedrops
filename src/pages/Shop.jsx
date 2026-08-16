@@ -45,7 +45,7 @@ export default function Shop() {
   useEffect(() => {
     const cat = searchParams.get("cat");
     if (cat && cat !== active) setActive(cat);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [searchParams]);
 
   const selectCategory = (key) => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Bell, Check, Wallet, XCircle, Clock, X, ArrowLeftRight, PartyPopper } from "lucide-react";
+import { Bell, Check, Wallet, XCircle, Clock, ArrowLeftRight, PartyPopper } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";

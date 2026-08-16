@@ -3,7 +3,6 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ArrowLeftRight, Gem, Star, Package, MessageSquare, Trophy } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Image } from "@/components/ui/image";
-import StarRating from "@/components/StarRating";
 import TraderCard from "@/components/TraderCard";
 import { cn } from "@/lib/utils";
 

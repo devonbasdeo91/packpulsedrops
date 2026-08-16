@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Trophy, Layers, CalendarDays, Search, CheckSquare, Square, X, DollarSign } from "lucide-react";
 import { base44 } from "@/api/base44Client";

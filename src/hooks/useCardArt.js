@@ -79,7 +79,6 @@ export function useCardArt(items) {
       alive = false;
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dep]);
 
   return map;

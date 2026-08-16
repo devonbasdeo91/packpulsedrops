@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useWallet } from "@/components/WalletProvider";
 import {
   ArrowDownToLine, CheckCircle2, XCircle, Clock,
-  AlertTriangle, Loader2, DollarSign, Layers,
+  AlertTriangle, Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import WithdrawalSection from "@/components/WithdrawalSection";

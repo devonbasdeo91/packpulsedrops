@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Search, UserPlus, Check, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "@/components/ui/use-toast";
-import { cn } from "@/lib/utils";
 
 export default function AddFriendPanel({ onClose, onSent }) {
   const [query, setQuery] = useState("");

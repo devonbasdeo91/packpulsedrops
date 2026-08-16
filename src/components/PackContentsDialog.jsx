@@ -31,7 +31,7 @@ export default function PackContentsDialog({ open, onOpenChange, pack, pool }) {
         })
         .catch(() => {});
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, pack?.id]);
 
   return (
