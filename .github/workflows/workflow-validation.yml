@@ -21,9 +21,6 @@ on:
       - "pack-pulse-drops (7).zip"
   workflow_dispatch:
 
-env:
-  APP_ARCHIVE: pack-pulse-drops (7).zip
-
 permissions:
   contents: read
 
@@ -39,58 +36,52 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Lint workflow files
-      uses: rhysd/actionlint@v1
+      uses: rhysd/actionlint-action@v1
 
-    - name: Prepare app workspace
+    - name: Prepare app source
       shell: bash
       run: |
         set -euo pipefail
 
-        if [ ! -f "$APP_ARCHIVE" ]; then
-          echo "::error::Missing application archive: $APP_ARCHIVE"
+        if [ -f package.json ]; then
+          echo "APP_DIR=." >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+        if [ -z "$archive" ]; then
+          echo "::error::No package.json or source archive found at the repository root."
           exit 1
         fi
 
-        if [ ! -f "package.json" ] || [ ! -f "package-lock.json" ]; then
-          echo "::error::Repository must include package.json and package-lock.json"
+        rm -rf extracted-app
+        mkdir -p extracted-app
+        unzip -q "$archive" -d extracted-app
+
+        if [ ! -f extracted-app/package.json ]; then
+          echo "::error::Source archive '$archive' does not contain a package.json at its root."
           exit 1
         fi
 
-        app_dir="$RUNNER_TEMP/packpulsedrops-app"
-        rm -rf "$app_dir"
-        mkdir -p "$app_dir"
-        unzip -q "$APP_ARCHIVE" -d "$app_dir"
-        cp package.json "$app_dir/package.json"
-        cp package-lock.json "$app_dir/package-lock.json"
-
-        if [ -f ".npmrc" ]; then
-          cp ".npmrc" "$app_dir/.npmrc"
-        fi
-
-        for required in package.json package-lock.json src/main.jsx vite.config.js; do
-          if [ ! -e "$app_dir/$required" ]; then
-            echo "::error file=$required::Prepared app workspace is missing '$required'"
-            exit 1
-          fi
-        done
-
-        echo "APP_DIR=$app_dir" >> "$GITHUB_ENV"
+        echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: npm
-        cache-dependency-path: package-lock.json
+        cache-dependency-path: |
+          package-lock.json
+          extracted-app/package-lock.json
 
     - name: Validate Node.js compatibility
       run: |
-        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(`Validated Node.js ${process.version}`);"
+        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(\`Validated Node.js \${process.version}\`);"
 
     - name: Validate npm configuration
       working-directory: ${{ env.APP_DIR }}
       run: |
-        node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); const missing = ['build'].filter((name) => !pkg.scripts || !pkg.scripts[name]); if (missing.length) { console.error(`Missing required npm scripts: ${missing.join(', ')}`); process.exit(1); } console.log('Dependency and script metadata look valid.');"
+        node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); const missing = ['build'].filter((name) => !pkg.scripts || !pkg.scripts[name]); if (missing.length) { console.error(\`Missing required npm scripts: \${missing.join(', ')}\`); process.exit(1); } console.log('Dependency and script metadata look valid.');"
 
     - name: Install dependencies
       working-directory: ${{ env.APP_DIR }}
@@ -104,8 +95,10 @@ jobs:
       shell: bash
       run: |
         set -euo pipefail
-        if [ ! -d "${APP_DIR}/dist" ]; then
-          echo "::error::Expected Vite build output directory '${APP_DIR}/dist' was not created."
+        dist="${APP_DIR}/dist"
+        build="${APP_DIR}/build"
+        if [ ! -d "$dist" ] && [ ! -d "$build" ]; then
+          echo "::error::Build output directory was not created (checked dist/ and build/)."
           exit 1
         fi
-        ls -la "${APP_DIR}/dist"
+        ls -la "$dist" 2>/dev/null || ls -la "$build"
