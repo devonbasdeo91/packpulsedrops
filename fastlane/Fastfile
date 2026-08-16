@@ -92,6 +92,15 @@ def require_app_store_auth!
   require_fastlane_user_auth!
 end
 
+def first_discovered_path(patterns, reject_segments: [])
+  patterns
+    .flat_map { |pattern| Dir[pattern] }
+    .uniq
+    .reject { |path| reject_segments.any? { |segment| path.include?(segment) } }
+    .first
+    .to_s
+end
+
 def ios_build_settings
   app_dir = app_dir_path
 
@@ -100,11 +109,11 @@ def ios_build_settings
   scheme = ENV["IOS_SCHEME"].to_s.strip
 
   if workspace.empty? && project.empty?
-    workspace_patterns = ["#{app_dir}/ios/*.xcworkspace", "#{app_dir}/*.xcworkspace", "ios/*.xcworkspace", "*.xcworkspace"].uniq
-    project_patterns = ["#{app_dir}/ios/*.xcodeproj", "#{app_dir}/*.xcodeproj", "ios/*.xcodeproj", "*.xcodeproj"].uniq
+    workspace_patterns = ["#{app_dir}/ios/**/*.xcworkspace", "#{app_dir}/**/*.xcworkspace", "ios/**/*.xcworkspace", "**/*.xcworkspace"].uniq
+    project_patterns = ["#{app_dir}/ios/**/*.xcodeproj", "#{app_dir}/**/*.xcodeproj", "ios/**/*.xcodeproj", "**/*.xcodeproj"].uniq
 
-    workspace = workspace_patterns.flat_map { |pattern| Dir[pattern] }.uniq.first.to_s
-    project = project_patterns.flat_map { |pattern| Dir[pattern] }.uniq.first.to_s if workspace.empty?
+    workspace = first_discovered_path(workspace_patterns, reject_segments: [".xcodeproj/"])
+    project = first_discovered_path(project_patterns, reject_segments: ["/Pods/"]) if workspace.empty?
   end
 
   if !workspace.empty?
@@ -175,7 +184,6 @@ platform :ios do
     require_app_store_auth!
     require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
     require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
-    setup_ci if ENV["CI"]
     setup_ci if ENV["CI"]
 
     settings = ios_build_settings
