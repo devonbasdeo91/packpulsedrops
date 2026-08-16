@@ -24,6 +24,9 @@ on:
 env:
   APP_ARCHIVE: pack-pulse-drops (7).zip
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
