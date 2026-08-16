@@ -2,8 +2,17 @@ name: Upload to TestFlight
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "Optional direct IPA URL"
+        required: false
+        type: string
+      ipa_path:
+        description: "Optional path to IPA already in repo/workspace"
+        required: false
+        type: string
 
 jobs:
   upload:
@@ -15,38 +24,116 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download IPA from release v1.0
-        run: |
-          mkdir -p build
-          curl -L \
-            -H "Accept: application/octet-stream" \
-            -o build/PackPulseDrops.ipa \
-            "https://github.com/${{ github.repository }}/releases/download/v1.0/ios-2.130297.1.2.ipa"
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
 
-      - name: Extract private key from P12
+      - name: Resolve App Store Connect credentials
         env:
-          P12_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12 }}
-          P12_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          ASC_KEY_ID_SECRET: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID_SECRET: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_SECRET: ${{ secrets.ASC_PRIVATE_KEY }}
+          APPSTORE_KEY_ID_SECRET: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID_SECRET: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY_SECRET: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APP_STORE_CONNECT_API_KEY_ID_SECRET: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID_SECRET: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          DISTRIBUTION_CERTIFICATE_P12_SECRET: ${{ secrets.DISTRIBUTION_CERTIFICATE_P12 }}
+          DISTRIBUTION_CERTIFICATE_PASSWORD_SECRET: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
         run: |
-          echo "$P12_BASE64" | base64 --decode > /tmp/cert.p12
-          openssl pkcs12 -in /tmp/cert.p12 -nocerts -nodes -passin "pass:$P12_PASSWORD" \
-            | openssl pkcs8 -topk8 -nocrypt -out /tmp/private_key.pem
+          set -euo pipefail
+
+          asc_key_id="${ASC_KEY_ID_SECRET:-${APPSTORE_KEY_ID_SECRET:-${APP_STORE_CONNECT_API_KEY_ID_SECRET:-}}}"
+          asc_issuer_id="${ASC_ISSUER_ID_SECRET:-${APPSTORE_ISSUER_ID_SECRET:-${APP_STORE_CONNECT_ISSUER_ID_SECRET:-}}}"
+          key_secret="${ASC_PRIVATE_KEY_SECRET:-${APPSTORE_PRIVATE_KEY_SECRET:-${APP_STORE_CONNECT_API_KEY_SECRET:-${DISTRIBUTION_CERTIFICATE_P12_SECRET:-}}}}"
+
+          if [ -z "$asc_key_id" ]; then
+            echo "::error::Missing App Store Connect key id. Set one of: ASC_KEY_ID, APPSTORE_KEY_ID, APP_STORE_CONNECT_API_KEY_ID."
+            exit 1
+          fi
+
+          if [ -z "$asc_issuer_id" ]; then
+            echo "::error::Missing App Store Connect issuer id. Set one of: ASC_ISSUER_ID, APPSTORE_ISSUER_ID, APP_STORE_CONNECT_ISSUER_ID."
+            exit 1
+          fi
+
+          if [ -z "$key_secret" ]; then
+            echo "::error::Missing App Store Connect private key. Set one of: ASC_PRIVATE_KEY, APPSTORE_PRIVATE_KEY, APP_STORE_CONNECT_API_KEY."
+            exit 1
+          fi
+
+          private_key_content=""
+          if printf '%s' "$key_secret" | grep -q "BEGIN .*PRIVATE KEY"; then
+            private_key_content="$key_secret"
+          else
+            decoded="$(printf '%s' "$key_secret" | base64 --decode 2>/dev/null || true)"
+            if printf '%s' "$decoded" | grep -q "BEGIN .*PRIVATE KEY"; then
+              private_key_content="$decoded"
+            fi
+          fi
+
+          if [ -z "$private_key_content" ] && [ -n "${DISTRIBUTION_CERTIFICATE_PASSWORD_SECRET:-}" ]; then
+            if printf '%s' "$key_secret" | base64 --decode > /tmp/cert.p12 2>/dev/null; then
+              if openssl pkcs12 -in /tmp/cert.p12 -nocerts -nodes -passin "pass:${DISTRIBUTION_CERTIFICATE_PASSWORD_SECRET}" 2>/dev/null \
+                | openssl pkcs8 -topk8 -nocrypt -out /tmp/private_key.pem 2>/dev/null; then
+                private_key_content="$(cat /tmp/private_key.pem)"
+              fi
+            fi
+          fi
+
+          if [ -z "$private_key_content" ]; then
+            echo "::error::Could not parse App Store Connect private key. Provide raw or base64 .p8 key content in ASC_PRIVATE_KEY/APPSTORE_PRIVATE_KEY/APP_STORE_CONNECT_API_KEY."
+            exit 1
+          fi
+
+          asc_private_key_base64="$(printf '%s' "$private_key_content" | base64 | tr -d '\n')"
+
           {
-            echo 'APPSTORE_PRIVATE_KEY<<EOF'
-            cat /tmp/private_key.pem
-            echo EOF
+            echo "ASC_KEY_ID=$asc_key_id"
+            echo "ASC_ISSUER_ID=$asc_issuer_id"
+            echo "ASC_PRIVATE_KEY=$asc_private_key_base64"
           } >> "$GITHUB_ENV"
 
-      - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@v1
-        with:
-          app-path: build/PackPulseDrops.ipa
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ env.APPSTORE_PRIVATE_KEY }}
+      - name: Resolve IPA path
+        env:
+          INPUT_IPA_URL: ${{ github.event.inputs.ipa_url }}
+          INPUT_IPA_PATH: ${{ github.event.inputs.ipa_path }}
+          SECRET_IPA_URL: ${{ secrets.IPA_URL }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p build
+
+          if [ -n "${INPUT_IPA_PATH:-}" ] && [ -f "${INPUT_IPA_PATH}" ]; then
+            ipa_path="${INPUT_IPA_PATH}"
+          elif [ -f "build/PackPulseDrops.ipa" ]; then
+            ipa_path="build/PackPulseDrops.ipa"
+          elif [ -n "${INPUT_IPA_URL:-}" ]; then
+            ipa_path="build/PackPulseDrops.ipa"
+            curl -fL "${INPUT_IPA_URL}" -o "${ipa_path}"
+          elif [ -n "${SECRET_IPA_URL:-}" ]; then
+            ipa_path="build/PackPulseDrops.ipa"
+            curl -fL "${SECRET_IPA_URL}" -o "${ipa_path}"
+          else
+            gh release download --repo "${GITHUB_REPOSITORY}" --pattern "*.ipa" --dir build --clobber
+            ipa_path="$(find build -maxdepth 1 -type f -name '*.ipa' | head -n 1)"
+          fi
+
+          if [ -z "${ipa_path:-}" ] || [ ! -f "${ipa_path:-}" ]; then
+            echo "::error::No IPA found. Provide workflow input `ipa_url`/`ipa_path`, set IPA_URL secret, or upload an IPA asset in a GitHub Release."
+            exit 1
+          fi
+
+          echo "IPA_PATH=${ipa_path}" >> "$GITHUB_ENV"
+          echo "Resolved IPA: ${ipa_path}"
+
+      - name: Upload to TestFlight via Fastlane
+        run: bundle exec fastlane ios upload_to_testflight
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "::error::Upload to TestFlight failed. Check the logs above for details."
-          echo "::notice::Ensure APPSTORE_ISSUER_ID, APPSTORE_KEY_ID, DISTRIBUTION_CERTIFICATE_P12, and DISTRIBUTION_CERTIFICATE_PASSWORD secrets are set."
+          echo "::error::Upload to TestFlight failed. Check logs above."
+          echo "::notice::Required credentials: ASC_KEY_ID/ASC_ISSUER_ID/ASC_PRIVATE_KEY (or APPSTORE_* / APP_STORE_CONNECT_* aliases)."
