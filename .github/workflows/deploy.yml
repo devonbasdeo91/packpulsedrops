@@ -48,6 +48,19 @@ jobs:
             echo "app_dir=extracted_app"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Patch bundle identifier
+        shell: bash
+        working-directory: ${{ steps.extract_zip.outputs.app_dir }}
+        run: |
+          set -euo pipefail
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8'));
+            cfg.appId = 'com.base6a7815213ea6e3d52ada68aa.app';
+            fs.writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
+          "
+          echo "Bundle ID patched to com.base6a7815213ea6e3d52ada68aa.app"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
