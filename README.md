@@ -68,6 +68,8 @@ For authentication, configure one of:
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_ISSUER_ID`
 
+`APP_STORE_CONNECT_API_KEY` can be stored as either raw `.p8` content (including escaped `\n`) or base64-encoded `.p8` content.
+
 or:
 
 - `FASTLANE_USER`
