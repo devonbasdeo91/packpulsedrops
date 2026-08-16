@@ -185,7 +185,9 @@ jobs:
           app_dir="${APP_DIR:-.}"
           pod_directory=""
 
-          if [ -f "${app_dir}/ios/Podfile" ]; then
+          if [ -f "${app_dir}/ios/App/Podfile" ]; then
+            pod_directory="${app_dir}/ios/App"
+          elif [ -f "${app_dir}/ios/Podfile" ]; then
             pod_directory="${app_dir}/ios"
           elif [ -f "${app_dir}/Podfile" ]; then
             pod_directory="${app_dir}"
