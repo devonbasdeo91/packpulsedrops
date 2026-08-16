@@ -71,8 +71,8 @@ jobs:
 
           archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
           if [ -z "$archive" ]; then
-            echo "APP_DIR=." >> "$GITHUB_ENV"
-            exit 0
+            echo "::error::No package.json or source archive found at the repository root."
+            exit 1
           fi
 
           rm -rf extracted-app
