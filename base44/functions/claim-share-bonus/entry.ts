@@ -1,7 +1,4 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
-import { verifyShareToken, dayStr } from "../../shared/shareToken.ts";
-
-const SHARE_BONUS_GEMS = 50;
 
 export default async function (req) {
   try {

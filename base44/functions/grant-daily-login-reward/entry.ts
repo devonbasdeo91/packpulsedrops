@@ -1,13 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { waitUntil, secrets } from 'base44:runtime';
 import { isInternalCall } from "../../shared/internalAuth.ts";
-
-const REWARD_GEMS = 250;
-
-function dayStr(offsetDays = 0) {
-  const d = new Date(Date.now() - offsetDays * 86400000);
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
 
 export default async function(req) {
   try {

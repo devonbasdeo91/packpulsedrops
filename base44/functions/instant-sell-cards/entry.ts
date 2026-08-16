@@ -18,6 +18,7 @@ export default async function(req) {
     // Read fresh balance once from the DB (server is source of truth).
     const fresh = await base44.asServiceRole.entities.User.get(user.id);
     let currentGems = fresh.gems || 0;
+    let newBalance = currentGems;
 
     for (const pullId of pullIds) {
       try {
@@ -58,16 +59,19 @@ export default async function(req) {
     // would overwrite that deposit and lose the user's gems.
     if (totalReceives > 0) {
       const freshBalance = await base44.asServiceRole.entities.User.get(user.id);
+      newBalance = (freshBalance.gems || 0) + totalReceives;
       await base44.asServiceRole.entities.User.update(user.id, {
-        gems: (freshBalance.gems || 0) + totalReceives,
+        gems: newBalance,
       });
+    } else {
+      newBalance = currentGems;
     }
 
     return Response.json({
       success: true,
       sold_count: sold.length,
       total_received_gems: totalReceives,
-      new_balance: currentGems,
+      new_balance: newBalance,
       errors,
     });
   } catch (error) {
