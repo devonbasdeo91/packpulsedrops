@@ -7,13 +7,19 @@ def require_env!(key, description)
 end
 
 def ios_build_settings
+  app_dir = ENV["APP_DIR"].to_s.strip
+  app_dir = "." if app_dir.empty?
+
   workspace = ENV["IOS_WORKSPACE"].to_s.strip
   project = ENV["IOS_PROJECT"].to_s.strip
   scheme = ENV["IOS_SCHEME"].to_s.strip
 
   if workspace.empty? && project.empty?
-    workspace = (Dir["ios/*.xcworkspace"] + Dir["*.xcworkspace"]).first.to_s
-    project = (Dir["ios/*.xcodeproj"] + Dir["*.xcodeproj"]).first.to_s if workspace.empty?
+    workspace_patterns = ["#{app_dir}/ios/*.xcworkspace", "#{app_dir}/*.xcworkspace", "ios/*.xcworkspace", "*.xcworkspace"].uniq
+    project_patterns = ["#{app_dir}/ios/*.xcodeproj", "#{app_dir}/*.xcodeproj", "ios/*.xcodeproj", "*.xcodeproj"].uniq
+
+    workspace = workspace_patterns.flat_map { |pattern| Dir[pattern] }.first.to_s
+    project = project_patterns.flat_map { |pattern| Dir[pattern] }.first.to_s if workspace.empty?
   end
 
   if !workspace.empty?

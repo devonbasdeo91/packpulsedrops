@@ -60,6 +60,26 @@ jobs:
           gem install fastlane --no-document
           fastlane --version
 
+      - name: Prepare app source
+        run: |
+          set -euo pipefail
+
+          if [ -f package.json ]; then
+            echo "APP_DIR=." >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          if [ -z "$archive" ]; then
+            echo "APP_DIR=." >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          rm -rf extracted-app
+          mkdir -p extracted-app
+          unzip -q "$archive" -d extracted-app
+          echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
+
       - name: Validate App Store configuration
         run: |
           set -euo pipefail
@@ -73,8 +93,9 @@ jobs:
             fi
           done
 
+          app_dir="${APP_DIR:-.}"
           if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && \
-            ! find . -maxdepth 2 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) | grep -q .; then
+            ! find "$app_dir" . -maxdepth 3 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) | grep -q .; then
             echo "::error::No Xcode workspace or project was found. Commit the iOS project or supply ios_workspace/ios_project when running the workflow."
             missing=1
           fi
@@ -85,9 +106,16 @@ jobs:
           fi
 
       - name: Install JavaScript dependencies
-        if: ${{ hashFiles('package.json') != '' }}
+        if: ${{ hashFiles('package.json', '*.zip') != '' }}
         run: |
           set -euo pipefail
+
+          cd "${APP_DIR:-.}"
+
+          if [ ! -f package.json ]; then
+            echo "No package.json in ${APP_DIR:-.}; skipping JavaScript dependency installation."
+            exit 0
+          fi
 
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
             npm ci
@@ -96,13 +124,26 @@ jobs:
           fi
 
       - name: Install CocoaPods dependencies
-        if: ${{ hashFiles('ios/Podfile', 'Podfile') != '' }}
+        if: ${{ hashFiles('ios/Podfile', 'Podfile', '*.zip') != '' }}
         run: |
           set -euo pipefail
 
-          pod_directory="ios"
-          if [ -f Podfile ]; then
+          app_dir="${APP_DIR:-.}"
+          pod_directory=""
+
+          if [ -f "${app_dir}/ios/Podfile" ]; then
+            pod_directory="${app_dir}/ios"
+          elif [ -f "${app_dir}/Podfile" ]; then
+            pod_directory="${app_dir}"
+          elif [ -f "ios/Podfile" ]; then
+            pod_directory="ios"
+          elif [ -f "Podfile" ]; then
             pod_directory="."
+          fi
+
+          if [ -z "${pod_directory}" ]; then
+            echo "No Podfile found; skipping CocoaPods installation."
+            exit 0
           fi
 
           cd "$pod_directory"
