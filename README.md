@@ -68,6 +68,39 @@ After pushing your changes to git, open the Base44 dashboard and publish the app
 base44 dashboard open
 ```
 
+## CI/CD – GitHub Actions
+
+### Build and Test
+
+The `.github/workflows/build.yml` workflow runs on every push/PR to `main` or `develop`. It:
+- Installs Node.js dependencies via `npm ci`
+- Builds the application with `npm run build`
+- Runs tests
+- Uploads build artifacts
+
+### App Store Connect Upload
+
+The `.github/workflows/appstore-upload.yml` workflow builds the app and uploads it to App Store Connect using Fastlane. It triggers on pushes to `main` or manually via **workflow_dispatch**.
+
+**Required GitHub Secrets** (Settings → Secrets and variables → Actions):
+
+| Secret | Description |
+|---|---|
+| `APP_IDENTIFIER` | Your app's bundle ID, e.g. `com.yourcompany.packpulsedrops` |
+| `FASTLANE_USER` | Your Apple ID email address |
+| `ASC_KEY_ID` | App Store Connect API Key ID (from App Store Connect → Users → Keys) |
+| `ASC_ISSUER_ID` | App Store Connect API Issuer ID |
+| `ASC_PRIVATE_KEY` | App Store Connect API private key (.p8 file content, **base64-encoded**) |
+| `ITC_TEAM_ID` | App Store Connect team ID (if you belong to multiple teams) |
+| `TEAM_ID` | Apple Developer team ID |
+| `IPA_PATH` | Path to the `.ipa` file to upload (e.g. `build/PackPulseDrops.ipa`) |
+
+To base64-encode your `.p8` key file:
+```bash
+base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
+```
+Then paste the result as the `ASC_PRIVATE_KEY` secret value.
+
 ## Docs & Support
 
 Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
