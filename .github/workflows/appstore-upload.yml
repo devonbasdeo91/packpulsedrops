@@ -50,6 +50,14 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Download IPA from release assets
+        run: |
+          mkdir -p build
+          curl -L \
+            -H "Accept: application/octet-stream" \
+            -o build/PackPulseDrops.ipa \
+            "https://github.com/${{ github.repository }}/releases/download/v1.0/ios-2.130297.1.2.ipa"
+
       - name: Run Fastlane lane
         env:
           APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
@@ -59,7 +67,7 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
           ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
           TEAM_ID: ${{ secrets.TEAM_ID }}
-          IPA_PATH: ${{ secrets.IPA_PATH }}
+          IPA_PATH: build/PackPulseDrops.ipa
         run: |
           LANE="${{ github.event.inputs.lane || 'upload_to_testflight' }}"
           bundle exec fastlane ios $LANE
