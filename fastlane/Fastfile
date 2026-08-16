@@ -2,7 +2,7 @@ default_platform(:ios)
 
 require "base64"
 require "shellwords"
-require "tmpdir"
+require "tempfile"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -52,10 +52,21 @@ def app_store_connect_api_key_file_path
   key_content = normalized_app_store_connect_api_key_content
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
 
-  path = File.join(Dir.tmpdir, "asc-key-#{key_id}.p8")
-  File.open(path, File::WRONLY | File::CREAT | File::TRUNC, 0o600) { |file| file.write(key_content) }
-  at_exit { File.delete(path) if File.exist?(path) }
-  @app_store_connect_api_key_file_path = path
+  tempfile = Tempfile.new(["asc-key-#{key_id}-", ".p8"])
+  tempfile.write(key_content)
+  tempfile.flush
+  tempfile.chmod(0o600)
+
+  at_exit do
+    begin
+      tempfile.close!
+    rescue StandardError
+      # no-op
+    end
+  end
+
+  @app_store_connect_api_key_tempfile = tempfile
+  @app_store_connect_api_key_file_path = tempfile.path
 end
 
 def require_fastlane_user_auth!
