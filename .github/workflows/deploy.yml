@@ -11,280 +11,31 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: macos-14
-    timeout-minutes: 90
-    env:
-      CERTIFICATE_PASSWORD: ${{ secrets.P12_PASSWORD }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Extract Base44 source ZIP
-        id: extract_zip
+      - name: Find IPA file
+        id: find_ipa
         shell: bash
         run: |
           set -euo pipefail
-
-          archive="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-          if [ -z "$archive" ]; then
-            echo "::error::No ZIP file found in the repository root."
-            exit 1
-          fi
-
-          rm -rf extracted_app
-          mkdir -p extracted_app
-          unzip -q "$archive" -d extracted_app
-
-          if [ ! -f extracted_app/package.json ]; then
-            echo "::error::Source archive '$archive' does not contain package.json at its root."
-            exit 1
-          fi
-
-          {
-            echo "archive<<EOF"
-            echo "$archive"
-            echo "EOF"
-            echo "app_dir=extracted_app"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Patch bundle identifier
-        shell: bash
-        working-directory: ${{ steps.extract_zip.outputs.app_dir }}
-        run: |
-          set -euo pipefail
-          node -e "
-            const fs = require('fs');
-            const cfg = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8'));
-            cfg.appId = 'com.base6a7815213ea6e3d52ada68aa.app';
-            fs.writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
-          "
-          echo "Bundle ID patched to com.base6a7815213ea6e3d52ada68aa.app"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: extracted_app/package-lock.json
-
-      - name: Install JavaScript dependencies
-        shell: bash
-        working-directory: ${{ steps.extract_zip.outputs.app_dir }}
-        run: |
-          set -euo pipefail
-
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build web assets
-        shell: bash
-        working-directory: ${{ steps.extract_zip.outputs.app_dir }}
-        run: |
-          set -euo pipefail
-          npm run build --if-present
-
-      - name: Sync Capacitor iOS project
-        shell: bash
-        working-directory: ${{ steps.extract_zip.outputs.app_dir }}
-        run: |
-          set -euo pipefail
-
-          if [ -f capacitor.config.ts ] || [ -f capacitor.config.json ]; then
-            npx cap sync ios
-          else
-            echo "::error::No Capacitor config found in extracted app source."
-            exit 1
-          fi
-
-      - name: Install CocoaPods dependencies
-        shell: bash
-        working-directory: ${{ steps.extract_zip.outputs.app_dir }}
-        run: |
-          set -euo pipefail
-
-          pod_directory=""
-          if [ -f ios/App/Podfile ]; then
-            pod_directory="ios/App"
-          elif [ -f ios/Podfile ]; then
-            pod_directory="ios"
-          elif [ -f Podfile ]; then
-            pod_directory="."
-          fi
-
-          if [ -z "$pod_directory" ]; then
-            echo "::error::No Podfile found after syncing the iOS project."
-            exit 1
-          fi
-
-          cd "$pod_directory"
-          pod install --repo-update
-
-      - name: Install signing assets
-        id: signing
-        shell: bash
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          cert_path="$RUNNER_TEMP/build_certificate.p12"
-          profile_path="$RUNNER_TEMP/build_profile.mobileprovision"
-          keychain_path="$RUNNER_TEMP/build.keychain-db"
-          keychain_password="${KEYCHAIN_PASSWORD}"
-          profile_plist="$RUNNER_TEMP/profile.plist"
-
-          python3 - <<'PY' "$cert_path" "$profile_path"
-          import base64
-          import os
-          import pathlib
-          import sys
-
-          cert_path = pathlib.Path(sys.argv[1])
-          profile_path = pathlib.Path(sys.argv[2])
-
-          cert_path.write_bytes(base64.b64decode(os.environ["BUILD_CERTIFICATE_BASE64"]))
-          profile_path.write_bytes(base64.b64decode(os.environ["BUILD_PROVISION_PROFILE_BASE64"]))
-          PY
-
-          security create-keychain -p "$keychain_password" "$keychain_path"
-          security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "$keychain_password" "$keychain_path"
-          security import "$cert_path" -P "${CERTIFICATE_PASSWORD:-}" -A -t cert -f pkcs12 -k "$keychain_path"
-          security list-keychain -d user -s "$keychain_path" login.keychain-db
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path"
-
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          security cms -D -i "$profile_path" > "$profile_plist"
-
-          profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "$profile_plist")"
-          profile_name="$(/usr/libexec/PlistBuddy -c 'Print Name' "$profile_plist")"
-          team_id="$(/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' "$profile_plist")"
-
-          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
-
-          {
-            echo "keychain_path=$keychain_path"
-            echo "team_id=$team_id"
-            echo "profile_uuid=$profile_uuid"
-            echo "profile_name<<EOF"
-            echo "$profile_name"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Build and export IPA
-        id: build_ipa
-        shell: bash
-        env:
-          APP_DIR: ${{ steps.extract_zip.outputs.app_dir }}
-          KEYCHAIN_PATH: ${{ steps.signing.outputs.keychain_path }}
-          PROFILE_NAME: ${{ steps.signing.outputs.profile_name }}
-          TEAM_ID: ${{ steps.signing.outputs.team_id }}
-        run: |
-          set -euo pipefail
-
-          workspace="$(find "$APP_DIR" -type d -name '*.xcworkspace' ! -path '*/Pods/*' ! -path '*.xcodeproj/*' | head -n 1)"
-          project="$(find "$APP_DIR" -type d -name '*.xcodeproj' ! -path '*/Pods/*' | head -n 1)"
-
-          if [ -z "$workspace" ] && [ -z "$project" ]; then
-            echo "::error::No Xcode workspace or project found in $APP_DIR."
-            exit 1
-          fi
-
-          if [ -n "$workspace" ]; then
-            container_flag=(-workspace "$workspace")
-            container_path="$workspace"
-            scheme="$(basename "$workspace" .xcworkspace)"
-          else
-            container_flag=(-project "$project")
-            container_path="$project"
-            scheme="$(basename "$project" .xcodeproj)"
-          fi
-
-          archive_path="$RUNNER_TEMP/${scheme}.xcarchive"
-          export_path="$RUNNER_TEMP/exported-ipa"
-          export_options_plist="$RUNNER_TEMP/ExportOptions.plist"
-          build_settings_path="$RUNNER_TEMP/build-settings.txt"
-
-          xcodebuild "${container_flag[@]}" -scheme "$scheme" -showBuildSettings > "$build_settings_path"
-          bundle_id="$(awk -F ' = ' '/PRODUCT_BUNDLE_IDENTIFIER/ {print $2; exit}' "$build_settings_path")"
-
-          if [ -z "$bundle_id" ]; then
-            echo "::error::Unable to determine PRODUCT_BUNDLE_IDENTIFIER for scheme '$scheme'."
-            exit 1
-          fi
-
-          cat > "$export_options_plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>teamID</key>
-            <string>${TEAM_ID}</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>${bundle_id}</key>
-              <string>${PROFILE_NAME}</string>
-            </dict>
-          </dict>
-          </plist>
-          EOF
-
-          xcodebuild \
-            "${container_flag[@]}" \
-            -scheme "$scheme" \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$archive_path" \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            OTHER_CODE_SIGN_FLAGS="--keychain \"$KEYCHAIN_PATH\""
-
-          xcodebuild -exportArchive \
-            -archivePath "$archive_path" \
-            -exportPath "$export_path" \
-            -exportOptionsPlist "$export_options_plist"
-
-          ipa_path="$(find "$export_path" -type f -name '*.ipa' | head -n 1)"
+          ipa_path="$(find . -maxdepth 2 -type f -name '*.ipa' | head -n 1)"
           if [ -z "$ipa_path" ]; then
-            echo "::error::IPA export failed; no .ipa file was generated."
+            echo "::error::No .ipa file found in the repository. Please upload your IPA from Base44."
             exit 1
           fi
-
-          {
-            echo "ipa_path<<EOF"
-            echo "$ipa_path"
-            echo "EOF"
-            echo "scheme=$scheme"
-            echo "container_path<<EOF"
-            echo "$container_path"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: ${{ steps.build_ipa.outputs.ipa_path }}
-          if-no-files-found: error
+          echo "Found IPA: $ipa_path"
+          echo "ipa_path=$ipa_path" >> "$GITHUB_OUTPUT"
 
       - name: Upload IPA to TestFlight
         uses: apple-actions/upload-testflight-build@v5
         with:
-          app-path: ${{ steps.build_ipa.outputs.ipa_path }}
+          app-path: ${{ steps.find_ipa.outputs.ipa_path }}
           app-type: ios
-          backend: AppStoreAPI
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
