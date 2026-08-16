@@ -40,8 +40,20 @@ def normalized_app_store_connect_api_key_content
     nil
   end
 
-  key_content = decoded if decoded&.include?("BEGIN")
-  key_content.gsub("\\n", "\n")
+  normalized = if key_content.include?("BEGIN")
+    key_content
+  elsif decoded&.include?("BEGIN")
+    decoded
+  elsif decoded
+    UI.user_error!("APP_STORE_CONNECT_API_KEY decoded successfully but is not a PEM private key. Provide raw .p8 content or a base64-encoded .p8 key.")
+  else
+    key_content
+  end
+
+  normalized = normalized.gsub("\\n", "\n")
+  return normalized if normalized.include?("BEGIN")
+
+  UI.user_error!("APP_STORE_CONNECT_API_KEY must be raw .p8 content (PEM) or base64-encoded .p8 content.")
 end
 
 def app_store_connect_api_key_file_path
