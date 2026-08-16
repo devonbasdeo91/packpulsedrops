@@ -115,12 +115,14 @@ jobs:
           set -euo pipefail
           mkdir -p fastlane/logs
           fastlane ios build 2>&1 | tee fastlane/logs/build.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Run fastlane deliver
         run: |
           set -euo pipefail
           mkdir -p fastlane/logs
           fastlane ios deliver 2>&1 | tee fastlane/logs/deliver.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Upload Fastlane logs
         if: always()
