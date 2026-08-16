@@ -1,0 +1,65 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "gem_deposit",
+        "pack_purchase",
+        "marketplace_purchase",
+        "marketplace_sale",
+        "marketplace_fee",
+        "trade",
+        "instant_sell",
+        "withdrawal"
+      ]
+    },
+    "amount_gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "amount_usd": {
+      "type": "number",
+      "default": 0
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "related_id": {
+      "type": "string"
+    },
+    "counterparty_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_id",
+    "type",
+    "description"
+  ],
+  "rls": {
+    "read": {
+      "data.user_id": "{{user.id}}"
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

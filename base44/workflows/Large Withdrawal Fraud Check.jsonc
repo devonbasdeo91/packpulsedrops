@@ -1,0 +1,142 @@
+{
+  "name": "Large Withdrawal Fraud Check",
+  "description": "When a WithdrawalRequest over $500 is created, first checks the account age \u2014 young accounts (< 30 days) are skipped and handled by the Young Account Withdrawal Review workflow. For accounts 30+ days old, waits 1 hour then checks the user's recent Trade activity for suspicious patterns (high volume, value imbalance, wash trading, rapid clustering). Auto-approves the payout if clean; escalates to admins via the withdrawal_helper agent for manual review if flagged.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "WithdrawalRequest",
+      "events": [
+        "create"
+      ]
+    },
+    "condition": "${ .trigger.data.amount_usd > 500 }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "large_withdrawal_fraud_check",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_age": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-withdrawal-account-age",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route_age",
+          "x-base44": {
+            "title": "Check account age",
+            "description": "Young accounts are handled by the Young Account Withdrawal Review workflow"
+          }
+        }
+      },
+      {
+        "route_age": {
+          "switch": [
+            {
+              "when": "${ .check_age.young_account == true }",
+              "then": "end"
+            },
+            {
+              "when": "${ true }",
+              "then": "wait_one_hour"
+            }
+          ],
+          "x-base44": {
+            "title": "Young account?",
+            "description": "Skip if < 30 days old"
+          }
+        }
+      },
+      {
+        "wait_one_hour": {
+          "wait": "PT1H",
+          "then": "check_suspicious_activity",
+          "x-base44": {
+            "title": "Wait 1 hour",
+            "description": "Cooling-off period before fraud check"
+          }
+        }
+      },
+      {
+        "check_suspicious_activity": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-suspicious-trade-activity",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "route_on_risk",
+          "x-base44": {
+            "title": "Check suspicious trades",
+            "description": "Analyze recent Trade activity for fraud signals"
+          }
+        }
+      },
+      {
+        "route_on_risk": {
+          "switch": [
+            {
+              "when": "${ .check_suspicious_activity.skipped == true }",
+              "then": "end"
+            },
+            {
+              "when": "${ .check_suspicious_activity.suspicious == true }",
+              "then": "escalate"
+            },
+            {
+              "when": "${ true }",
+              "then": "approve"
+            }
+          ],
+          "x-base44": {
+            "title": "Suspicious?",
+            "description": "Branch on fraud risk assessment"
+          }
+        }
+      },
+      {
+        "escalate": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "escalate-withdrawal-to-agent",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Escalate to agent",
+            "description": "Notify admins for manual review via withdrawal_helper"
+          }
+        }
+      },
+      {
+        "approve": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auto-approve-withdrawal",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Approve payout",
+            "description": "No fraud signals \u2014 transfer funds"
+          }
+        }
+      }
+    ]
+  }
+}

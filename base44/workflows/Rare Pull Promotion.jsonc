@@ -1,0 +1,59 @@
+{
+  "name": "Rare Pull Promotion",
+  "description": "When an Ultra Rare or higher card is pulled, generate promotional art, create a SocialPost, and send a push notification inviting the user to share",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Pull",
+      "events": [
+        "create"
+      ]
+    },
+    "condition": "${ .trigger.data.rarity | IN(\"Ultra Rare\", \"Secret Rare\", \"Ghost Rare\", \"Auto\", \"Relic\", \"1/1\", \"Diamond\") }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "rare_pull_promotion",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "generate_art": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "generate-card-art",
+            "args": {
+              "internal_secret": "wf_caller",
+              "prompt": "Promotional trading card art for a ${ .trigger.data.rarity } ${ .trigger.data.card_name } from ${ .trigger.data.category } category, dramatic lighting, holographic foil effect, collector showcase style, high detail"
+            }
+          },
+          "then": "promote_pull",
+          "x-base44": {
+            "title": "Generate promo art",
+            "description": "AI image for the pulled card"
+          }
+        }
+      },
+      {
+        "promote_pull": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "promote-rare-pull",
+            "args": {
+              "internal_secret": "wf_caller",
+              "pull_id": "${ .trigger.entity_id }",
+              "image_url": "${ .generate_art.url }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Create post & notify",
+            "description": "SocialPost + push notification"
+          }
+        }
+      }
+    ]
+  }
+}

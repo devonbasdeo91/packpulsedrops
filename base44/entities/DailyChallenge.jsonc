@@ -1,0 +1,39 @@
+{
+  "name": "DailyChallenge",
+  "type": "object",
+  "properties": {
+    "challenge_type": {
+      "type": "string",
+      "enum": [
+        "rip_3_packs",
+        "rip_5_packs",
+        "complete_trade"
+      ]
+    },
+    "date": {
+      "type": "string"
+    },
+    "gems_awarded": {
+      "type": "integer",
+      "default": 0
+    }
+  },
+  "required": [
+    "challenge_type",
+    "date"
+  ],
+  "rls": {
+    "read": {
+      "created_by_id": "{{user.id}}"
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "created_by_id": "{{user.id}}"
+    },
+    "delete": {
+      "created_by_id": "{{user.id}}"
+    }
+  }
+}

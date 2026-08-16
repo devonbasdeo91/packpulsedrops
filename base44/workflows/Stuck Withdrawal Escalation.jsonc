@@ -1,0 +1,51 @@
+{
+  "name": "Stuck Withdrawal Escalation",
+  "description": "When a new withdrawal request is created, waits 48 hours. If the withdrawal is still pending after 48h, escalates to admins for manual review. Replaces the scheduled auto-healer's stuck-withdrawal check \u2014 fires only when a withdrawal is actually created.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "WithdrawalRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "stuck_withdrawal_escalation",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "wait_48h": {
+          "wait": "PT48H",
+          "then": "heal",
+          "x-base44": {
+            "title": "Wait 48 hours",
+            "description": "Durable wait \u2014 survives restarts"
+          }
+        }
+      },
+      {
+        "heal": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "heal-stuck-withdrawal",
+            "args": {
+              "request_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Escalate if still pending",
+            "description": "Notify admins for manual review"
+          }
+        }
+      }
+    ]
+  }
+}

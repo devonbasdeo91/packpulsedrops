@@ -1,0 +1,71 @@
+name: Build and Upload to App Store Connect
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'Fastlane lane to run (upload_to_testflight or upload_to_appstore)'
+        required: true
+        default: 'upload_to_testflight'
+        type: choice
+        options:
+          - upload_to_testflight
+          - upload_to_appstore
+
+jobs:
+  build-and-upload:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload web build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist/
+          retention-days: 7
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Run Fastlane lane
+        env:
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          IPA_PATH: ${{ secrets.IPA_PATH }}
+        run: |
+          LANE="${{ github.event.inputs.lane || 'upload_to_testflight' }}"
+          bundle exec fastlane ios $LANE
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Build or upload to App Store Connect failed. Check the logs above for details."
+          echo "::notice::Make sure all required secrets are configured in GitHub repository settings."

@@ -1,0 +1,42 @@
+{
+  "name": "Trade Status Tracker",
+  "description": "Notifies users via email when they receive a trade request (pending) or when their trade request is accepted or declined.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "Trade"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "trade_status_tracker",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notify-trade",
+            "args": {
+              "trade_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Notify trade party",
+            "description": "Email the relevant user about the trade"
+          }
+        }
+      }
+    ]
+  }
+}

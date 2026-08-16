@@ -1,0 +1,101 @@
+{
+  "name": "WithdrawalRequest",
+  "type": "object",
+  "properties": {
+    "amount_gems": {
+      "type": "integer"
+    },
+    "amount_usd": {
+      "type": "number"
+    },
+    "net_usd": {
+      "type": "number",
+      "description": "USD the user receives after the platform fee is deducted"
+    },
+    "fee_percent": {
+      "type": "number",
+      "description": "Platform fee percentage applied (5 for standard, 10 for instant)"
+    },
+    "withdrawal_type": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "instant"
+      ],
+      "default": "standard",
+      "description": "standard = bank transfer 3-5 business days (5% fee); instant = debit card instant (10% fee)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "paid"
+      ],
+      "default": "pending"
+    },
+    "bank_name": {
+      "type": "string"
+    },
+    "account_last4": {
+      "type": "string"
+    },
+    "routing_last4": {
+      "type": "string"
+    },
+    "card_last4": {
+      "type": "string",
+      "description": "Last 4 digits of the debit card for instant withdrawals"
+    },
+    "processed_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "admin_note": {
+      "type": "string"
+    },
+    "stripe_account_id": {
+      "type": "string"
+    },
+    "stripe_transfer_id": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "amount_gems",
+    "amount_usd",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

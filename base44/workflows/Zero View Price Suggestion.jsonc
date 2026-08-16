@@ -1,0 +1,47 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "zero_view_price_suggestion",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "suggest_reductions": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "suggest-price-reductions",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Suggest price reductions",
+            "description": "Find zero-view 72h listings, AI-suggest prices, email sellers"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Zero View Price Suggestion",
+  "description": "Every day at 9am, finds active marketplace listings with zero views older than 72 hours, uses AI (with the collection_organizer's pricing knowledge) to suggest reduced prices based on market trends, and emails each seller with a one-click button to apply the reduction.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 9 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

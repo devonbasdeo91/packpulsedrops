@@ -1,0 +1,51 @@
+{
+  "name": "Missing Art Retry",
+  "description": "When a new pull is created, waits 2 hours. If the pull still has no artwork after 2h, retries art generation. Replaces the scheduled auto-healer's missing-art check \u2014 fires only when a pull is actually created.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Pull"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "missing_art_retry",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "wait_2h": {
+          "wait": "PT2H",
+          "then": "heal",
+          "x-base44": {
+            "title": "Wait 2 hours",
+            "description": "Give original art generation time to complete"
+          }
+        }
+      },
+      {
+        "heal": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "heal-missing-art",
+            "args": {
+              "pull_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Retry art if still missing",
+            "description": "Regenerate artwork for the pull"
+          }
+        }
+      }
+    ]
+  }
+}

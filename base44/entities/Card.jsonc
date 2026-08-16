@@ -1,0 +1,93 @@
+{
+  "name": "Card",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "pack_id": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "yugioh",
+        "baseball",
+        "pokemon",
+        "dragonball",
+        "digimon",
+        "basketball",
+        "naruto",
+        "bleach",
+        "football",
+        "soccer",
+        "cricket",
+        "tennis",
+        "wnba",
+        "nhl",
+        "golf",
+        "badminton",
+        "tabletennis",
+        "swimming",
+        "trackfield",
+        "f1"
+      ]
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "Common",
+        "Rare",
+        "Super Rare",
+        "Ultra Rare",
+        "Secret Rare",
+        "Ghost Rare",
+        "Base",
+        "Short Print",
+        "Refractor",
+        "Auto",
+        "Relic",
+        "1/1",
+        "Diamond"
+      ]
+    },
+    "value_gems": {
+      "type": "integer",
+      "default": 0
+    },
+    "subset": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "name",
+    "pack_id",
+    "rarity",
+    "category"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "description": "Runs every 2 hours to automatically detect and fix all platform issues \u2014 stuck trades, stale listings, missing card art, orphaned guest purchases, duplicate Stripe events, stale friendships, old notifications, stuck withdrawals, orphaned Stripe payments, double-credited transactions, negative gem balances, sold listings missing buyer, refund reconciliation, and duplicate active listings \u2014 without any user prompt.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "system_auto_healer",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "heal": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auto-heal-system",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run auto-heal checks",
+            "description": "Detect & fix platform issues"
+          }
+        }
+      }
+    ]
+  },
+  "name": "System Auto-Healer",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 2,
+      "interval_unit": "hours",
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

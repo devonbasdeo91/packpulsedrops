@@ -1,0 +1,41 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload build to App Store Connect (TestFlight)"
+  lane :upload_to_testflight do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_PRIVATE_KEY"],
+      is_key_content_base64: true,
+      in_house: false
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ENV["IPA_PATH"] || "build/PackPulseDrops.ipa",
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Upload build directly to App Store Connect for review"
+  lane :upload_to_appstore do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_PRIVATE_KEY"],
+      is_key_content_base64: true,
+      in_house: false
+    )
+
+    deliver(
+      api_key: api_key,
+      ipa: ENV["IPA_PATH"] || "build/PackPulseDrops.ipa",
+      submit_for_review: false,
+      automatic_release: false,
+      skip_metadata: true,
+      skip_screenshots: true,
+      force: true
+    )
+  end
+end

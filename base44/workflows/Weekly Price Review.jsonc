@@ -1,0 +1,47 @@
+{
+  "description": "Every Monday at 8am, finds all active marketplace listings older than 7 days, uses AI to suggest reduced prices based on market trends, and emails each seller with a link to review and apply the suggestion in the app. Sellers can accept the suggested price or set their own, and receive a notification when the change goes live.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "weekly_price_review",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "review_prices": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "weekly-price-review",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Review stale listing prices",
+            "description": "Find 7+ day listings, AI-suggest prices, email sellers"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Weekly Price Review",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 8 * * 1",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

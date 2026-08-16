@@ -1,0 +1,47 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 10 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Overpriced Listing Alert",
+  "description": "Every day at 10am, compares each active marketplace listing's ask price to the average of similar listings (same category + rarity). Emails sellers whose cards are priced 20%+ above the current market average, with a link to manage their listing. Re-notifies the same listing only after 14 days.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "overpriced_listing_alert",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "check_overpriced": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "check-overpriced-listings",
+            "args": {
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Check overpriced listings",
+            "description": "Find listings priced 20%+ above market average and email sellers"
+          }
+        }
+      }
+    ]
+  }
+}

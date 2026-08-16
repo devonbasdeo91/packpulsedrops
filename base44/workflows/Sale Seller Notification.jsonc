@@ -1,0 +1,41 @@
+{
+  "name": "Sale Seller Notification",
+  "description": "Emails a seller immediately when one of their marketplace listings is purchased.",
+  "trigger": {
+    "config": {
+      "trigger_type": "entity",
+      "entity_name": "Listing",
+      "events": [
+        "update"
+      ]
+    },
+    "condition": "${ .trigger.data.status == \"sold\" and .trigger.old_data.status != \"sold\" }"
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sale_seller_notification",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "notify_seller": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notify-seller-of-sale",
+            "args": {
+              "listing_id": "${ .trigger.entity_id }",
+              "internal_secret": "wf_caller"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email the seller",
+            "description": "Notify the seller their listing sold"
+          }
+        }
+      }
+    ]
+  }
+}

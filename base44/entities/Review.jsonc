@@ -1,0 +1,70 @@
+{
+  "name": "Review",
+  "type": "object",
+  "properties": {
+    "listing_id": {
+      "type": "string"
+    },
+    "trade_id": {
+      "type": "string"
+    },
+    "card_name": {
+      "type": "string"
+    },
+    "reviewer_id": {
+      "type": "string"
+    },
+    "reviewer_name": {
+      "type": "string"
+    },
+    "reviewee_id": {
+      "type": "string"
+    },
+    "reviewee_name": {
+      "type": "string"
+    },
+    "reviewer_role": {
+      "type": "string",
+      "enum": [
+        "buyer",
+        "seller",
+        "trader"
+      ]
+    },
+    "rating": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "comment": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    }
+  },
+  "required": [
+    "reviewer_id",
+    "reviewee_id",
+    "reviewer_role",
+    "rating"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "created_by_id": "{{user.id}}"
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
