@@ -6,9 +6,51 @@ def require_env!(key, description)
   value
 end
 
-def ios_build_settings
+def app_dir_path
   app_dir = ENV["APP_DIR"].to_s.strip
-  app_dir = "." if app_dir.empty?
+  app_dir.empty? ? "." : app_dir
+end
+
+def app_store_connect_api_key_from_env
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  key_content = ENV["APP_STORE_CONNECT_API_KEY"].to_s
+
+  return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
+
+  app_store_connect_api_key(
+    key_id: key_id,
+    issuer_id: issuer_id,
+    key_content: key_content,
+    is_key_content_base64: false
+  )
+end
+
+def require_fastlane_user_auth!
+  require_env!("FASTLANE_USER", "Apple ID email")
+  require_env!("FASTLANE_PASSWORD", "Apple ID password or app-specific password")
+end
+
+def require_app_store_auth!
+  return if app_store_connect_api_key_from_env
+
+  require_fastlane_user_auth!
+end
+
+def prepare_ios_project!
+  app_dir = app_dir_path
+
+  Dir.chdir(app_dir) do
+    sh("npm run build --if-present") if File.exist?("package.json")
+
+    if File.exist?("capacitor.config.ts") || File.exist?("capacitor.config.json")
+      sh("npx cap sync ios")
+    end
+  end
+end
+
+def ios_build_settings
+  app_dir = app_dir_path
 
   workspace = ENV["IOS_WORKSPACE"].to_s.strip
   project = ENV["IOS_PROJECT"].to_s.strip
@@ -71,12 +113,12 @@ end
 platform :ios do
   desc "Build the iOS app for App Store distribution"
   lane :build do
-    require_env!("FASTLANE_USER", "Apple ID email")
-    require_env!("FASTLANE_PASSWORD", "Apple ID password or app-specific password")
+    require_app_store_auth!
     require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
     require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
 
     setup_ci if ENV["CI"]
+    prepare_ios_project!
 
     settings = ios_build_settings
     output_settings = ipa_output_settings(settings)
@@ -87,6 +129,7 @@ platform :ios do
       export_method: ENV.fetch("IOS_EXPORT_METHOD", "app-store"),
       output_directory: output_settings[:output_directory],
       output_name: output_settings[:output_name],
+      xcargs: "-allowProvisioningUpdates",
       silent: false
     }
 
@@ -105,11 +148,11 @@ platform :ios do
 
   desc "Upload the iOS build to App Store Connect"
   lane :deliver do
-    require_env!("FASTLANE_USER", "Apple ID email")
-    require_env!("FASTLANE_PASSWORD", "Apple ID password or app-specific password")
+    require_app_store_auth!
     require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
     require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
 
+    api_key = app_store_connect_api_key_from_env
     settings = ios_build_settings
     output_settings = ipa_output_settings(settings)
 
@@ -121,8 +164,9 @@ platform :ios do
     upload_to_app_store(
       ipa: ipa_path,
       app_identifier: ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"],
-      apple_id: ENV["FASTLANE_USER"],
       team_id: ENV["FASTLANE_TEAM_ID"],
+      api_key: api_key,
+      apple_id: ENV["FASTLANE_USER"].to_s.strip.empty? ? nil : ENV["FASTLANE_USER"],
       # Default to binary-only uploads unless explicitly set to "false".
       skip_metadata: env_true_unless_false("DELIVER_SKIP_METADATA"),
       skip_screenshots: env_true_unless_false("DELIVER_SKIP_SCREENSHOTS"),

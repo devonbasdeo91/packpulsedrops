@@ -59,12 +59,23 @@ The repository now includes `.github/workflows/app-store-distribution.yml`, whic
 
 Configure these GitHub Actions secrets before running it:
 
-- `FASTLANE_USER`
-- `FASTLANE_PASSWORD`
 - `FASTLANE_APPLE_APPLICATION_IDENTIFIER`
 - `FASTLANE_TEAM_ID`
 
+For authentication, configure one of:
+
+- `APP_STORE_CONNECT_API_KEY`
+- `APP_STORE_CONNECT_API_KEY_ID`
+- `APP_STORE_CONNECT_ISSUER_ID`
+
+or:
+
+- `FASTLANE_USER`
+- `FASTLANE_PASSWORD`
+
 You will also need code-signing certificates and provisioning profiles available to Fastlane, either through additional secrets or a Fastlane-managed solution such as `match`.
+
+The archived web app source also now includes a Capacitor iOS wrapper (`capacitor.config.ts` and `ios/`) so GitHub Actions can sync and build an iOS project before Fastlane uploads the resulting IPA.
 
 ## License
 

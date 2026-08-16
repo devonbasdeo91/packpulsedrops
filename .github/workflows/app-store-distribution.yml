@@ -1,6 +1,8 @@
 name: App Store Distribution
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       ios_scheme:
@@ -33,6 +35,9 @@ jobs:
       FASTLANE_PASSWORD: ${{ secrets.FASTLANE_PASSWORD }}
       FASTLANE_APPLE_APPLICATION_IDENTIFIER: ${{ secrets.FASTLANE_APPLE_APPLICATION_IDENTIFIER }}
       FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+      APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       IOS_SCHEME: ${{ github.event.inputs.ios_scheme }}
       IOS_WORKSPACE: ${{ github.event.inputs.ios_workspace }}
       IOS_PROJECT: ${{ github.event.inputs.ios_project }}
@@ -91,13 +96,28 @@ jobs:
           set -euo pipefail
 
           missing=0
-          for secret_name in FASTLANE_USER FASTLANE_PASSWORD FASTLANE_APPLE_APPLICATION_IDENTIFIER FASTLANE_TEAM_ID; do
+          for secret_name in FASTLANE_APPLE_APPLICATION_IDENTIFIER FASTLANE_TEAM_ID; do
             secret_value="${!secret_name-}"
             if [ -z "${secret_value}" ]; then
               echo "::error::Missing required secret: ${secret_name}"
               missing=1
             fi
           done
+
+          has_password_auth=0
+          if [ -n "${FASTLANE_USER:-}" ] && [ -n "${FASTLANE_PASSWORD:-}" ]; then
+            has_password_auth=1
+          fi
+
+          has_api_key_auth=0
+          if [ -n "${APP_STORE_CONNECT_API_KEY:-}" ] && [ -n "${APP_STORE_CONNECT_API_KEY_ID:-}" ] && [ -n "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+            has_api_key_auth=1
+          fi
+
+          if [ "$has_password_auth" -eq 0 ] && [ "$has_api_key_auth" -eq 0 ]; then
+            echo "::error::Configure either FASTLANE_USER/FASTLANE_PASSWORD or APP_STORE_CONNECT_API_KEY/APP_STORE_CONNECT_API_KEY_ID/APP_STORE_CONNECT_ISSUER_ID."
+            missing=1
+          fi
 
           app_dir="${APP_DIR:-.}"
           if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && \
@@ -126,6 +146,23 @@ jobs:
             npm ci
           else
             npm install
+          fi
+
+      - name: Build web assets
+        run: |
+          set -euo pipefail
+          cd "${APP_DIR:-.}"
+          npm run build --if-present
+
+      - name: Sync Capacitor iOS project
+        run: |
+          set -euo pipefail
+
+          cd "${APP_DIR:-.}"
+          if [ -f capacitor.config.ts ] || [ -f capacitor.config.json ]; then
+            npx cap sync ios
+          else
+            echo "No Capacitor config found; skipping iOS sync."
           fi
 
       - name: Install CocoaPods dependencies
