@@ -129,13 +129,14 @@ jobs:
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
 
           cert_path="$RUNNER_TEMP/build_certificate.p12"
           profile_path="$RUNNER_TEMP/build_profile.mobileprovision"
           keychain_path="$RUNNER_TEMP/build.keychain-db"
-          keychain_password="$(openssl rand -hex 16)"
+          keychain_password="${KEYCHAIN_PASSWORD}"
           profile_plist="$RUNNER_TEMP/profile.plist"
 
           python3 - <<'PY' "$cert_path" "$profile_path"
