@@ -113,7 +113,7 @@ jobs:
           echo "## Build workflow diagnostics"
           echo "- Node.js: $(node --version)"
           echo "- npm: $(npm --version)"
-          echo "- Archive present: $([ -f "$APP_ARCHIVE" ] && echo yes || echo no)"
+          echo "- Archive present: $([ -f "$APP_ARCHIVE" ] && printf yes || printf no)"
           echo "- Prepared app directory: ${APP_DIR:-not-created}"
           if [ -n "${APP_DIR:-}" ] && [ -d "${APP_DIR:-}" ]; then
             echo
