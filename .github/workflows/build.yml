@@ -6,15 +6,9 @@ on:
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
-<<<<<<< HEAD
-
-env:
-  APP_ARCHIVE: pack-pulse-drops (7).zip
 
 permissions:
   contents: read
-=======
->>>>>>> origin/main
 
 jobs:
   build:
@@ -27,46 +21,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-<<<<<<< HEAD
-    - name: Prepare app workspace
-      id: prepare
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        if [ ! -f "$APP_ARCHIVE" ]; then
-          echo "::error::Missing application archive: $APP_ARCHIVE"
-          exit 1
-        fi
-
-        app_dir="$RUNNER_TEMP/packpulsedrops-app"
-        rm -rf "$app_dir"
-        mkdir -p "$app_dir"
-        unzip -q "$APP_ARCHIVE" -d "$app_dir"
-
-        for required in package.json package-lock.json; do
-          if [ ! -f "$required" ]; then
-            echo "::error::Missing required repository file: $required"
-            exit 1
-          fi
-          cp "$required" "$app_dir/$required"
-        done
-
-        if [ -f ".npmrc" ]; then
-          cp ".npmrc" "$app_dir/.npmrc"
-        fi
-
-        for required in package.json package-lock.json src/main.jsx vite.config.js; do
-          if [ ! -e "$app_dir/$required" ]; then
-            echo "::error file=$required::Prepared app workspace is missing '$required'"
-            exit 1
-          fi
-        done
-
-        echo "APP_DIR=$app_dir" >> "$GITHUB_ENV"
-        echo "app_dir=$app_dir" >> "$GITHUB_OUTPUT"
-        echo "Prepared app workspace at $app_dir"
-=======
     - name: Prepare app source
       run: |
         set -euo pipefail
@@ -92,59 +46,59 @@ jobs:
         fi
 
         echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
->>>>>>> origin/main
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: npm
-<<<<<<< HEAD
-        cache-dependency-path: package-lock.json
+        cache-dependency-path: |
+          package-lock.json
+          extracted-app/package-lock.json
 
     - name: Validate Node.js compatibility
       run: |
-        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(`Using compatible Node.js ${process.version}`);"
+        node -e "const major = Number(process.versions.node.split('.')[0]); if (major < 18) { console.error('PackPulseDrops requires Node.js 18 or newer.'); process.exit(1); } console.log(\`Using compatible Node.js \${process.version}\`);"
 
     - name: Validate build script configuration
       working-directory: ${{ env.APP_DIR }}
       run: |
         node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (!pkg.scripts || !pkg.scripts.build) { console.error('Missing required npm script: build'); process.exit(1); } console.log('Detected npm scripts:', Object.keys(pkg.scripts).join(', '));"
-=======
-        cache-dependency-path: |
-          package-lock.json
-          extracted-app/package-lock.json
->>>>>>> origin/main
 
     - name: Install dependencies
       working-directory: ${{ env.APP_DIR }}
       run: npm ci
 
-<<<<<<< HEAD
+    - name: Run lint
+      working-directory: ${{ env.APP_DIR }}
+      run: npm run lint --if-present
+
     - name: Build application
       working-directory: ${{ env.APP_DIR }}
-      run: npm run build
+      run: npm run build --if-present
 
     - name: Run tests when configured
       working-directory: ${{ env.APP_DIR }}
       shell: bash
       run: |
         set -euo pipefail
-        if node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1);"; then
-          npm test -- --passWithNoTests --watchAll=false
+        if node --input-type=commonjs -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
+          npm run test -- --passWithNoTests --watchAll=false
         else
-          echo "No npm test script is defined; skipping tests."
+          echo "No test script defined; skipping tests."
         fi
 
     - name: Verify build output
       shell: bash
       run: |
         set -euo pipefail
-        if [ ! -d "${APP_DIR}/dist" ]; then
-          echo "::error::Build output directory '${APP_DIR}/dist' was not created."
+        dist="${APP_DIR}/dist"
+        build="${APP_DIR}/build"
+        if [ ! -d "$dist" ] && [ ! -d "$build" ]; then
+          echo "::error::Build output directory was not created (checked dist/ and build/)."
           exit 1
         fi
-        ls -la "${APP_DIR}/dist"
+        ls -la "$dist" 2>/dev/null || ls -la "$build"
 
     - name: Summarize build failure
       if: failure()
@@ -154,7 +108,6 @@ jobs:
           echo "## Build workflow diagnostics"
           echo "- Node.js: $(node --version)"
           echo "- npm: $(npm --version)"
-          echo "- Archive present: $([ -f "$APP_ARCHIVE" ] && printf yes || printf no)"
           echo "- Prepared app directory: ${APP_DIR:-not-created}"
           if [ -n "${APP_DIR:-}" ] && [ -d "${APP_DIR:-}" ]; then
             echo
@@ -164,37 +117,12 @@ jobs:
           fi
         } >> "$GITHUB_STEP_SUMMARY"
 
-=======
-    - name: Run lint
-      working-directory: ${{ env.APP_DIR }}
-      run: npm run lint --if-present
-
-    - name: Build application
-      working-directory: ${{ env.APP_DIR }}
-      run: npm run build --if-present
-
-    - name: Run tests
-      working-directory: ${{ env.APP_DIR }}
-      run: |
-        set -euo pipefail
-        if node --input-type=commonjs -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
-          npm run test -- --passWithNoTests --watchAll=false
-        else
-          echo "No test script defined; skipping tests."
-        fi
-
->>>>>>> origin/main
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       if: always() && env.APP_DIR != ''
       with:
         name: build
-<<<<<<< HEAD
-        path: ${{ env.APP_DIR }}/dist/
-        if-no-files-found: ignore
-=======
         path: |
-          ${{ env.APP_DIR }}/build/
           ${{ env.APP_DIR }}/dist/
-        if-no-files-found: warn
->>>>>>> origin/main
+          ${{ env.APP_DIR }}/build/
+        if-no-files-found: ignore
