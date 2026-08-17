@@ -4,6 +4,7 @@ require "base64"
 require "tempfile"
 require "fileutils"
 require "pathname"
+require "shellwords"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -102,7 +103,7 @@ platform :ios do
     }
     unless team_id.empty?
       build_options[:export_team_id] = team_id
-      build_options[:xcargs] = [build_options[:xcargs], "DEVELOPMENT_TEAM=#{team_id}"].compact.join(" ")
+      build_options[:xcargs] = [build_options[:xcargs], "DEVELOPMENT_TEAM=#{Shellwords.escape(team_id)}"].compact.join(" ")
     end
     if xcode_workspace.empty?
       build_options[:project] = xcode_project
