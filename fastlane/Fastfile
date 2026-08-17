@@ -64,6 +64,10 @@ platform :ios do
   lane :deploy do
     workspace_root = ENV["GITHUB_WORKSPACE"].to_s.strip
     workspace_root = Dir.pwd if workspace_root.empty?
+    team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
+    unless team_id.empty? || team_id.match?(/\A[A-Z0-9]{10}\z/)
+      UI.user_error!("FASTLANE_TEAM_ID must be a 10-character Apple Developer team identifier containing only A-Z and 0-9.")
+    end
 
     ipa_path = ENV["IPA_PATH"].to_s.strip
     ipa_path = "app.ipa" if ipa_path.empty?
@@ -99,6 +103,12 @@ platform :ios do
       output_directory: File.dirname(ipa_path),
       output_name: File.basename(ipa_path, ".ipa")
     }
+    unless team_id.empty?
+      build_options[:export_team_id] = team_id
+      unless build_options[:xcargs].to_s.match?(/(?:^|\s)DEVELOPMENT_TEAM=/)
+        build_options[:xcargs] = [build_options[:xcargs].to_s, "DEVELOPMENT_TEAM=#{team_id}"].reject(&:empty?).join(" ")
+      end
+    end
     if xcode_workspace.empty?
       build_options[:project] = xcode_project
     else
