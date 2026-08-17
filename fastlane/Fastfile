@@ -105,9 +105,14 @@ platform :ios do
     }
     unless team_id.empty?
       build_options[:export_team_id] = team_id
+      xcargs = build_options[:xcargs].to_s
       unless build_options[:xcargs].to_s.match?(/(?:^|\s)DEVELOPMENT_TEAM=/)
-        build_options[:xcargs] = [build_options[:xcargs].to_s, "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates"].reject(&:empty?).join(" ")
+        xcargs = [xcargs, "DEVELOPMENT_TEAM=#{team_id}"].reject(&:empty?).join(" ")
       end
+      unless xcargs.match?(/(?:^|\s)-allowProvisioningUpdates(?:\s|$)/)
+        xcargs = [xcargs, "-allowProvisioningUpdates"].reject(&:empty?).join(" ")
+      end
+      build_options[:xcargs] = xcargs unless xcargs.empty?
     end
     if xcode_workspace.empty?
       build_options[:project] = xcode_project
