@@ -12,7 +12,12 @@ platform :ios do
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
-      xcargs: "DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY='iPhone Distribution' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
+      export_options: {
+        provisioningProfiles: {
+          "app.packpulsedrops.com" => "PackPulseDrop Distribution"
+        }
+      },
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates CODE_SIGN_IDENTITY='iPhone Distribution' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
     )
 
     # Directly stream the package payload up utilizing user credentials
