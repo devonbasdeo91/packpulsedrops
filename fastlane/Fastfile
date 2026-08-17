@@ -81,7 +81,7 @@ platform :ios do
       source = xcode_workspace.empty? ? xcode_project : xcode_workspace
       scheme = File.basename(source, File.extname(source))
     end
-    UI.user_error!("No Xcode scheme configured. Set XCODE_SCHEME to the app scheme name.") if scheme.empty?
+    UI.user_error!("Unable to determine Xcode scheme. Set XCODE_SCHEME to the app scheme name.") if scheme.empty?
 
     FileUtils.mkdir_p(File.dirname(ipa_path))
     build_options = {
@@ -89,7 +89,7 @@ platform :ios do
       clean: true,
       export_method: "app-store",
       output_directory: File.dirname(ipa_path),
-      output_name: File.basename(ipa_path),
+      output_name: File.basename(ipa_path, ".ipa"),
       skip_package_ipa: false
     }
     if xcode_workspace.empty?
