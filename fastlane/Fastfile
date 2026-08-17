@@ -98,7 +98,8 @@ platform :ios do
       build_options[:workspace] = xcode_workspace
     end
 
-    build_app(build_options)
+    produced_ipa_path = build_app(build_options).to_s.strip
+    ipa_path = produced_ipa_path unless produced_ipa_path.empty?
     
     UI.user_error!("IPA was not produced by build_app at #{ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") unless File.exist?(ipa_path)
     
