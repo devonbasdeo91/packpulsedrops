@@ -1,0 +1,47 @@
+name: App Store Distribution
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ipa_path:
+        description: "Path to the IPA file"
+        required: false
+        default: "build/app.ipa"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+      APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+      IPA_PATH: ${{ github.event.inputs.ipa_path || 'build/app.ipa' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Validate App Store Connect secrets
+        run: |
+          set -euo pipefail
+          test -n "${APP_STORE_CONNECT_API_KEY_KEY_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY_ID" && exit 1)
+          test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
+          test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
+
+      - name: Upload IPA with Fastlane
+        run: |
+          set -euo pipefail
+          bundle exec fastlane ios deploy

@@ -1,57 +1,34 @@
 default_platform(:ios)
 
+def require_env!(key)
+  value = ENV[key].to_s.strip
+  UI.user_error!("Missing #{key}. Configure it in GitHub Actions secrets.") if value.empty?
+  value
+end
+
 platform :ios do
-  # Upload via App Store Connect API key (.p8)
-  # Requires: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY (base64 .p8 content)
-  desc "Upload IPA to TestFlight using App Store Connect API key"
-  lane :upload_to_testflight do
+  desc "Upload IPA to TestFlight with App Store Connect API key (.p8)"
+  lane :deploy do
+    key_id = require_env!("APP_STORE_CONNECT_API_KEY_KEY_ID")
+    issuer_id = require_env!("APP_STORE_CONNECT_API_KEY_ISSUER_ID")
+    key_content = require_env!("APP_STORE_CONNECT_API_KEY_KEY").gsub("\\n", "\n")
+
     api_key = app_store_connect_api_key(
-      key_id: ENV["ASC_KEY_ID"],
-      issuer_id: ENV["ASC_ISSUER_ID"],
-      key_content: ENV["ASC_PRIVATE_KEY"],
-      is_key_content_base64: true,
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_content: key_content,
+      is_key_content_base64: false,
       in_house: false
     )
 
+    ipa_path = ENV["IPA_PATH"].to_s.strip
+    ipa_path = "build/app.ipa" if ipa_path.empty?
+    UI.user_error!("IPA not found at #{ipa_path}") unless File.exist?(ipa_path)
+
     upload_to_testflight(
       api_key: api_key,
-      ipa: ENV["IPA_PATH"] || "build/app.ipa",
+      ipa: ipa_path,
       skip_waiting_for_build_processing: true
-    )
-  end
-
-  # Upload via distribution certificate (.p12) + Apple ID
-  # Requires: APPLE_ID, APPLE_ID_PASSWORD (app-specific password), APP_IDENTIFIER, TEAM_ID
-  # Certificate must already be imported into the keychain by the workflow before this lane runs
-  desc "Upload IPA to TestFlight using distribution certificate and Apple ID"
-  lane :upload_p12 do
-    upload_to_testflight(
-      username: ENV["APPLE_ID"],
-      app_identifier: ENV["APP_IDENTIFIER"],
-      team_id: ENV["TEAM_ID"],
-      ipa: ENV["IPA_PATH"] || "build/app.ipa",
-      skip_waiting_for_build_processing: true
-    )
-  end
-
-  desc "Upload IPA directly to App Store Connect for review (API key)"
-  lane :upload_to_appstore do
-    api_key = app_store_connect_api_key(
-      key_id: ENV["ASC_KEY_ID"],
-      issuer_id: ENV["ASC_ISSUER_ID"],
-      key_content: ENV["ASC_PRIVATE_KEY"],
-      is_key_content_base64: true,
-      in_house: false
-    )
-
-    deliver(
-      api_key: api_key,
-      ipa: ENV["IPA_PATH"] || "build/app.ipa",
-      submit_for_review: false,
-      automatic_release: false,
-      skip_metadata: true,
-      skip_screenshots: true,
-      force: true
     )
   end
 end
