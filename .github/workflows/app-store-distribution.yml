@@ -34,6 +34,10 @@ jobs:
           test -n "${APP_STORE_CONNECT_API_KEY_KEY_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+      - name: Sync Capacitor iOS platform
+        run: npx cap sync ios
       - name: Validate IPA exists
         run: |
           set -euo pipefail
