@@ -2,6 +2,7 @@ default_platform(:ios)
 
 require "base64"
 require "tempfile"
+require "fileutils"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -48,13 +49,43 @@ end
 platform :ios do
   desc "Upload a pre-built IPA to App Store Connect / TestFlight"
   lane :deploy do
+    workspace_root = ENV["GITHUB_WORKSPACE"].to_s.strip
+    workspace_root = Dir.pwd if workspace_root.empty?
+
     ipa_path = ENV["IPA_PATH"].to_s.strip
     ipa_path = "app.ipa" if ipa_path.empty?
     unless ipa_path.start_with?("/")
-      workspace = ENV["GITHUB_WORKSPACE"].to_s.strip
-      base_dir = workspace.empty? ? Dir.pwd : workspace
-      ipa_path = File.expand_path(ipa_path, base_dir)
+      ipa_path = File.expand_path(ipa_path, workspace_root)
     end
+
+    xcode_workspace = ENV["XCODE_WORKSPACE"].to_s.strip
+    xcode_project = ENV["XCODE_PROJECT"].to_s.strip
+    if xcode_workspace.empty? && xcode_project.empty?
+      xcode_workspace = Dir.glob(File.join(workspace_root, "**/*.xcworkspace")).sort.first.to_s
+      xcode_project = Dir.glob(File.join(workspace_root, "**/*.xcodeproj")).sort.first.to_s if xcode_workspace.empty?
+    end
+
+    UI.user_error!("No Xcode workspace or project found. Set XCODE_WORKSPACE or XCODE_PROJECT, or commit an .xcworkspace/.xcodeproj to the repository.") if xcode_workspace.empty? && xcode_project.empty?
+
+    scheme = ENV["XCODE_SCHEME"].to_s.strip
+    scheme = "packpulsedrops" if scheme.empty?
+
+    FileUtils.mkdir_p(File.dirname(ipa_path))
+    build_options = {
+      scheme: scheme,
+      clean: true,
+      export_method: "app-store",
+      output_directory: File.dirname(ipa_path),
+      output_name: File.basename(ipa_path),
+      skip_package_ipa: false
+    }
+    if xcode_workspace.empty?
+      build_options[:project] = xcode_project
+    else
+      build_options[:workspace] = xcode_workspace
+    end
+
+    build_app(build_options)
     
     UI.user_error!("IPA not found at #{ipa_path}. Make sure the file exists before running this lane.") unless File.exist?(ipa_path)
     
