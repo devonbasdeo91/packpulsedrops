@@ -1,7 +1,6 @@
 default_platform(:ios)
 
 require "base64"
-require "shellwords"
 require "tempfile"
 
 def require_env!(key, description)
@@ -10,18 +9,34 @@ def require_env!(key, description)
   value
 end
 
-def app_dir_path
-  app_dir = ENV["APP_DIR"].to_s.strip
-  app_dir.empty? ? "." : app_dir
+def normalized_app_store_connect_api_key_content
+  key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"].to_s
+  return "" if key_content.strip.empty?
+  
+  decoded = begin
+    Base64.strict_decode64(key_content)
+  rescue ArgumentError
+    nil
+  end
+  
+  normalized = if key_content.include?("BEGIN")
+    key_content
+  elsif decoded&.include?("BEGIN")
+    decoded
+  else
+    key_content
+  end
+  
+  normalized.gsub("\\n", "\n")
 end
 
 def app_store_connect_api_key_from_env
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
-  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"].to_s.strip
   key_content = normalized_app_store_connect_api_key_content
-
+  
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
-
+  
   app_store_connect_api_key(
     key_id: key_id,
     issuer_id: issuer_id,
@@ -30,215 +45,22 @@ def app_store_connect_api_key_from_env
   )
 end
 
-def normalized_app_store_connect_api_key_content
-  key_content = ENV["APP_STORE_CONNECT_API_KEY"].to_s
-  return "" if key_content.strip.empty?
-
-  decoded = begin
-    Base64.strict_decode64(key_content)
-  rescue ArgumentError
-    nil
-  end
-
-  normalized = if key_content.include?("BEGIN")
-    key_content
-  elsif decoded&.include?("BEGIN")
-    decoded
-  elsif decoded
-    UI.user_error!("APP_STORE_CONNECT_API_KEY decoded successfully but is not a PEM private key. Provide raw .p8 content or a base64-encoded .p8 key.")
-  else
-    key_content
-  end
-
-  normalized = normalized.gsub("\\n", "\n")
-  return normalized if normalized.include?("BEGIN")
-
-  UI.user_error!("APP_STORE_CONNECT_API_KEY must be raw .p8 content (PEM) or base64-encoded .p8 content.")
-end
-
-def app_store_connect_api_key_file_path
-  return @app_store_connect_api_key_file_path if defined?(@app_store_connect_api_key_file_path) && @app_store_connect_api_key_file_path
-
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
-  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
-  key_content = normalized_app_store_connect_api_key_content
-  return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
-
-  tempfile = Tempfile.new(["asc-key-#{key_id}-", ".p8"])
-  tempfile.write(key_content)
-  tempfile.flush
-  tempfile.chmod(0o600)
-
-  at_exit do
-    begin
-      tempfile.close!
-    rescue StandardError
-      # no-op
-    end
-  end
-
-  @app_store_connect_api_key_tempfile = tempfile
-  @app_store_connect_api_key_file_path = tempfile.path
-end
-
-def require_fastlane_user_auth!
-  require_env!("FASTLANE_USER", "Apple ID email")
-  require_env!("FASTLANE_PASSWORD", "Apple ID password or app-specific password")
-end
-
-def require_app_store_auth!
-  return if app_store_connect_api_key_from_env
-
-  require_fastlane_user_auth!
-end
-
-def first_discovered_path(patterns, reject_segments: [])
-  patterns
-    .flat_map { |pattern| Dir[pattern] }
-    .uniq
-    .reject { |path| reject_segments.any? { |segment| path.include?(segment) } }
-    .first
-    .to_s
-end
-
-def ios_build_settings
-  app_dir = app_dir_path
-
-  workspace = ENV["IOS_WORKSPACE"].to_s.strip
-  project = ENV["IOS_PROJECT"].to_s.strip
-  scheme = ENV["IOS_SCHEME"].to_s.strip
-
-  if workspace.empty? && project.empty?
-    workspace_patterns = ["#{app_dir}/ios/**/*.xcworkspace", "#{app_dir}/**/*.xcworkspace", "ios/**/*.xcworkspace", "**/*.xcworkspace"].uniq
-    project_patterns = ["#{app_dir}/ios/**/*.xcodeproj", "#{app_dir}/**/*.xcodeproj", "ios/**/*.xcodeproj", "**/*.xcodeproj"].uniq
-
-    workspace = first_discovered_path(workspace_patterns, reject_segments: [".xcodeproj/"])
-    project = first_discovered_path(project_patterns, reject_segments: ["/Pods/"]) if workspace.empty?
-  end
-
-  if !workspace.empty?
-    project = ""
-  elsif !project.empty?
-    workspace = ""
-  end
-
-  UI.user_error!("No Xcode workspace or project found. Commit the iOS project or set IOS_WORKSPACE/IOS_PROJECT.") if workspace.empty? && project.empty?
-
-  if scheme.empty?
-    scheme = if workspace.empty?
-      File.basename(project, ".xcodeproj")
-    else
-      File.basename(workspace, ".xcworkspace")
-    end
-  end
-
-  settings = { scheme: scheme }
-  if workspace.empty?
-    settings[:project] = project
-  else
-    settings[:workspace] = workspace
-  end
-
-  settings
-end
-
-def env_true_unless_false(key)
-  value = ENV[key].to_s.strip.downcase
-  return true if value.empty?
-
-  value != "false"
-end
-
-def ipa_output_settings(settings)
-  output_directory = ENV["IOS_OUTPUT_DIRECTORY"].to_s.strip
-  output_directory = "build/ios" if output_directory.empty?
-  output_name = ENV["IOS_OUTPUT_NAME"].to_s.strip
-  output_name = settings[:scheme] if output_name.empty?
-  output_name = output_name.delete_suffix(".ipa")
-
-  {
-    output_directory: output_directory,
-    output_name: output_name
-  }
-end
-
-def build_xcargs
-  team_id = require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
-  arguments = ["-allowProvisioningUpdates", "DEVELOPMENT_TEAM=#{team_id}"]
-
-  key_path = app_store_connect_api_key_file_path
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
-  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
-  if key_path && !key_id.empty? && !issuer_id.empty?
-    arguments << "-authenticationKeyPath #{Shellwords.escape(key_path)}"
-    arguments << "-authenticationKeyID #{Shellwords.escape(key_id)}"
-    arguments << "-authenticationKeyIssuerID #{Shellwords.escape(issuer_id)}"
-  end
-
-  arguments.join(" ")
-end
-
 platform :ios do
-  desc "Build the iOS app for App Store distribution"
-  lane :build do
-    require_app_store_auth!
-    require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
-    require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
-    setup_ci if ENV["CI"]
-
-    settings = ios_build_settings
-    output_settings = ipa_output_settings(settings)
-
-    build_options = {
-      clean: true,
-      scheme: settings[:scheme],
-      export_method: ENV.fetch("IOS_EXPORT_METHOD", "app-store"),
-      output_directory: output_settings[:output_directory],
-      output_name: output_settings[:output_name],
-      xcargs: build_xcargs,
-      silent: false
-    }
-
-    if settings.key?(:workspace)
-      build_options[:workspace] = settings[:workspace]
-    else
-      build_options[:project] = settings[:project]
-    end
-
-    configuration = ENV["IOS_CONFIGURATION"].to_s.strip
-    build_options[:configuration] = configuration unless configuration.empty?
-
-    build_app(**build_options)
-    UI.success("Created iOS build at #{File.join(output_settings[:output_directory], "#{output_settings[:output_name]}.ipa")}")
-  end
-
-  desc "Upload the iOS build to App Store Connect"
-  lane :deliver do
-    require_app_store_auth!
-    require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
-    require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
-
-    api_key = app_store_connect_api_key_from_env
-    settings = ios_build_settings
-    output_settings = ipa_output_settings(settings)
-
+  desc "Upload a pre-built IPA to App Store Connect / TestFlight"
+  lane :deploy do
     ipa_path = ENV["IPA_PATH"].to_s.strip
-    ipa_path = File.join(output_settings[:output_directory], "#{output_settings[:output_name]}.ipa") if ipa_path.empty?
-
-    UI.user_error!("IPA not found at #{ipa_path}. Run `fastlane build` first or set IPA_PATH.") unless File.exist?(ipa_path)
-
-    upload_to_app_store(
+    ipa_path = "build/app.ipa" if ipa_path.empty?
+    
+    UI.user_error!("IPA not found at #{ipa_path}. Make sure the file exists before running this lane.") unless File.exist?(ipa_path)
+    
+    api_key = app_store_connect_api_key_from_env
+    
+    upload_to_testflight(
       ipa: ipa_path,
-      app_identifier: ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"],
-      team_id: ENV["FASTLANE_TEAM_ID"],
       api_key: api_key,
-      apple_id: ENV["FASTLANE_USER"].to_s.strip.empty? ? nil : ENV["FASTLANE_USER"],
-      # Default to binary-only uploads unless explicitly set to "false".
-      skip_metadata: env_true_unless_false("DELIVER_SKIP_METADATA"),
-      skip_screenshots: env_true_unless_false("DELIVER_SKIP_SCREENSHOTS"),
-      force: true
+      skip_waiting_for_build_processing: true
     )
-
-    UI.success("Uploaded #{ipa_path} to App Store Connect.")
+    
+    UI.success("Uploaded #{ipa_path} to TestFlight.")
   end
 end
