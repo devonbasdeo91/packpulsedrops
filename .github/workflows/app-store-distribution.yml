@@ -38,7 +38,7 @@ jobs:
 
       - name: Force Automatic Code Signing Mode
         run: |
-          find . -name "project.pbxproj" -exec sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' {} +
+          find . -name "project.pbxproj" -exec sed -i 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' {} +
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
