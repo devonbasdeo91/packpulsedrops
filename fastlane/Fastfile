@@ -5,7 +5,7 @@ require "base64"
 def normalized_api_key_content
   key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"].to_s
   return "" if key_content.strip.empty?
-  decoded = begin Base64.strict_decode64(key_content) rescue ArgumentError nil end
+  decoded = begin Base64.strict_decode64(key_content) rescue nil end
   normalized = key_content.include?("BEGIN") ? key_content : (decoded&.include?("BEGIN") ? decoded : key_content)
   normalized.gsub("\\n", "\n")
 end
@@ -30,10 +30,8 @@ platform :ios do
     team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
     UI.user_error!("Missing FASTLANE_TEAM_ID secret.") if team_id.empty?
 
-    # 1. Authenticate API Key Context
     api_key = app_store_connect_api_key_from_env
 
-    # 2. Compile the app package using clean, explicit build flags
     build_app(
       scheme: "App",
       project: "ios/App/App.xcodeproj",
@@ -42,7 +40,6 @@ platform :ios do
       xcargs: "DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY='iPhone Distribution' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
     )
 
-    # 3. Upload to Apple TestFlight
     upload_to_testflight(
       ipa: "build/app.ipa",
       api_key: api_key,
