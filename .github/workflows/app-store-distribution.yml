@@ -34,6 +34,8 @@ jobs:
         run: npm ci
       - name: Build web assets
         run: npm run build
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
       - name: Sync Capacitor iOS platform
         run: npx cap sync ios
       - name: Set up Ruby
