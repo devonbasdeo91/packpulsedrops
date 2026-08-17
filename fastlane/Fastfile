@@ -4,7 +4,6 @@ require "base64"
 require "tempfile"
 require "fileutils"
 require "pathname"
-require "shellwords"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -66,6 +65,9 @@ platform :ios do
     workspace_root = ENV["GITHUB_WORKSPACE"].to_s.strip
     workspace_root = Dir.pwd if workspace_root.empty?
     team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
+    unless team_id.empty? || team_id.match?(/\A[A-Z0-9]{10}\z/)
+      UI.user_error!("FASTLANE_TEAM_ID must be a 10-character Apple Developer team identifier containing only A-Z and 0-9.")
+    end
 
     ipa_path = ENV["IPA_PATH"].to_s.strip
     ipa_path = "app.ipa" if ipa_path.empty?
@@ -103,7 +105,7 @@ platform :ios do
     }
     unless team_id.empty?
       build_options[:export_team_id] = team_id
-      build_options[:xcargs] = [build_options[:xcargs], "DEVELOPMENT_TEAM=#{Shellwords.escape(team_id)}"].compact.join(" ")
+      build_options[:xcargs] = [build_options[:xcargs], "DEVELOPMENT_TEAM=#{team_id}"].compact.join(" ")
     end
     if xcode_workspace.empty?
       build_options[:project] = xcode_project
