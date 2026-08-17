@@ -16,6 +16,7 @@ platform :ios do
     # Direct Xcode distribution compilation utilizing automated system overrides
     build_app(
       scheme: "App",
+      configuration: "Release",
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
