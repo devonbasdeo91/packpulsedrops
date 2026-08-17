@@ -3,6 +3,7 @@ default_platform(:ios)
 require "base64"
 require "tempfile"
 require "fileutils"
+require "pathname"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -50,7 +51,7 @@ def preferred_xcode_paths(workspace_root, extension)
   exclude_nested_workspace_paths = extension == "xcworkspace"
   Dir.glob(File.join(workspace_root, "**/*.#{extension}"))
      .reject do |path|
-       components = path.split("/")
+       components = Pathname.new(path).each_filename.to_a
        in_pods_path = components.include?("Pods") || File.basename(path).start_with?("Pods.")
        nested_workspace_path = exclude_nested_workspace_paths && path.include?(".xcodeproj/")
        in_pods_path || nested_workspace_path
@@ -105,10 +106,8 @@ platform :ios do
     end
 
     produced_ipa_path = build_app(build_options).to_s.strip
-    UI.user_error!("build_app did not return an IPA path. Check build logs for workspace, scheme, signing, or export failures.") if produced_ipa_path.empty?
     ipa_path = produced_ipa_path
-    
-    UI.user_error!("IPA was not produced by build_app at #{ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") unless File.exist?(ipa_path)
+    UI.user_error!("build_app did not produce an IPA at #{ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") if ipa_path.empty? || !File.exist?(ipa_path)
     
     api_key = app_store_connect_api_key_from_env
     
