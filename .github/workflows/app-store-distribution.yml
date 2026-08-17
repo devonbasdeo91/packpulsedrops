@@ -23,6 +23,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Extract project archive
+        run: unzip -o "pack-pulse-drops (7).zip" -d . 2>/dev/null || true
+      - name: Install npm dependencies
+        run: npm ci
+      - name: Build web assets
+        run: npm run build
+      - name: Sync Capacitor iOS platform
+        run: npx cap sync ios
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -34,10 +47,6 @@ jobs:
           test -n "${APP_STORE_CONNECT_API_KEY_KEY_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
-      - name: Validate IPA exists
-        run: |
-          set -euo pipefail
-          test -f "${IPA_PATH}" || (echo "::error::IPA not found at ${IPA_PATH}" && exit 1)
       - name: Upload IPA with Fastlane
         run: |
           set -euo pipefail
