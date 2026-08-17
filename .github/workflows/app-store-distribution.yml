@@ -23,6 +23,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Extract project archive
+        run: unzip -o "pack-pulse-drops (7).zip" -d . 2>/dev/null || true
+      - name: Install npm dependencies
+        run: npm ci
+      - name: Build web assets
+        run: npm run build
+      - name: Sync Capacitor iOS platform
+        run: npx cap sync ios
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
