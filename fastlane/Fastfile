@@ -16,8 +16,8 @@ def app_dir_path
 end
 
 def app_store_connect_api_key_from_env
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
-  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"].to_s.strip
   key_content = normalized_app_store_connect_api_key_content
 
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
@@ -31,7 +31,7 @@ def app_store_connect_api_key_from_env
 end
 
 def normalized_app_store_connect_api_key_content
-  key_content = ENV["APP_STORE_CONNECT_API_KEY"].to_s
+  key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"].to_s
   return "" if key_content.strip.empty?
 
   decoded = begin
@@ -59,8 +59,8 @@ end
 def app_store_connect_api_key_file_path
   return @app_store_connect_api_key_file_path if defined?(@app_store_connect_api_key_file_path) && @app_store_connect_api_key_file_path
 
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
-  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"].to_s.strip
   key_content = normalized_app_store_connect_api_key_content
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
 
@@ -167,8 +167,8 @@ def build_xcargs
   arguments = ["-allowProvisioningUpdates", "DEVELOPMENT_TEAM=#{team_id}"]
 
   key_path = app_store_connect_api_key_file_path
-  key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"].to_s.strip
-  issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.strip
+  key_id = ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"].to_s.strip
+  issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"].to_s.strip
   if key_path && !key_id.empty? && !issuer_id.empty?
     arguments << "-authenticationKeyPath #{Shellwords.escape(key_path)}"
     arguments << "-authenticationKeyID #{Shellwords.escape(key_id)}"
@@ -213,7 +213,7 @@ platform :ios do
   end
 
   desc "Upload the iOS build to App Store Connect"
-  lane :deliver do
+  lane :deploy do
     require_app_store_auth!
     require_env!("FASTLANE_APPLE_APPLICATION_IDENTIFIER", "bundle identifier")
     require_env!("FASTLANE_TEAM_ID", "Apple Developer team ID")
