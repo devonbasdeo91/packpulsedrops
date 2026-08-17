@@ -19,12 +19,12 @@ platform :ios do
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
-      app_store_connect_api_key: api_key,
       xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates"
     )
 
     # Directly stream the package payload up utilizing user credentials
     upload_to_testflight(
+      api_key: api_key,
       skip_waiting_for_build_processing: true
     )
     UI.success("Successfully uploaded app to TestFlight!")
