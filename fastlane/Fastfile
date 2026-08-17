@@ -30,29 +30,22 @@ platform :ios do
     team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
     UI.user_error!("Missing FASTLANE_TEAM_ID secret.") if team_id.empty?
 
-    # 1. Setup temporary cloud keychain sandbox to satisfy Xcode Account requirements
-    setup_ci
-
-    # 2. Load and initialize global Apple cloud authentication context
+    # 1. Authenticate API Key Context
     api_key = app_store_connect_api_key_from_env
-    if api_key
-      use_api_key(api_key)
-    else
-      UI.message("Warning: App Store Connect API Key could not be loaded into memory context.")
-    end
 
-    # 3. Compile the app using the authenticated server profile infrastructure
+    # 2. Build the app by forcing direct cloud updates inside the underlying compiler
     build_app(
       scheme: "App",
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
-      xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates CODE_SIGN_STYLE=Automatic"
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates -authenticationKeyID #{ENV['APP_STORE_CONNECT_API_KEY_KEY_ID']} -authenticationKeyIssuerID #{ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID']} CODE_SIGN_STYLE=Automatic"
     )
 
-    # 4. Upload to Apple TestFlight
+    # 3. Upload to Apple TestFlight
     upload_to_testflight(
       ipa: "build/app.ipa",
+      api_key: api_key,
       skip_waiting_for_build_processing: true
     )
     UI.success("Successfully built and uploaded app to TestFlight!")
