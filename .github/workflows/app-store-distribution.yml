@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 45
     env:
       IPA_PATH: ${{ github.event.inputs.ipa_path || 'build/app.ipa' }}
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
