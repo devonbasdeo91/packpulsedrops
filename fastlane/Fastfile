@@ -1,8 +1,9 @@
 default_platform(:ios)
 
 require "base64"
-require "shellwords"
 require "tempfile"
+require "fileutils"
+require "pathname"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -10,18 +11,34 @@ def require_env!(key, description)
   value
 end
 
-def app_dir_path
-  app_dir = ENV["APP_DIR"].to_s.strip
-  app_dir.empty? ? "." : app_dir
+def normalized_app_store_connect_api_key_content
+  key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"].to_s
+  return "" if key_content.strip.empty?
+  
+  decoded = begin
+    Base64.strict_decode64(key_content)
+  rescue ArgumentError
+    nil
+  end
+  
+  normalized = if key_content.include?("BEGIN")
+    key_content
+  elsif decoded&.include?("BEGIN")
+    decoded
+  else
+    key_content
+  end
+  
+  normalized.gsub("\\n", "\n")
 end
 
 def app_store_connect_api_key_from_env
   key_id = ENV["APP_STORE_CONNECT_API_KEY_KEY_ID"].to_s.strip
   issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"].to_s.strip
   key_content = normalized_app_store_connect_api_key_content
-
+  
   return nil if key_id.empty? || issuer_id.empty? || key_content.strip.empty?
-
+  
   app_store_connect_api_key(
     key_id: key_id,
     issuer_id: issuer_id,
@@ -30,6 +47,7 @@ def app_store_connect_api_key_from_env
   )
 end
 
+<<<<<<< HEAD
 def normalized_app_store_connect_api_key_content
   key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"].to_s
   return "" if key_content.strip.empty?
@@ -221,24 +239,79 @@ platform :ios do
     api_key = app_store_connect_api_key_from_env
     settings = ios_build_settings
     output_settings = ipa_output_settings(settings)
+=======
+def preferred_xcode_paths(workspace_root, extension)
+  exclude_nested_workspace_paths = extension == "xcworkspace"
+  Dir.glob(File.join(workspace_root, "**/*.#{extension}"))
+     .reject do |path|
+       components = Pathname.new(path).each_filename.to_a
+       in_pods_path = components.include?("Pods") || File.basename(path).start_with?("Pods.")
+       nested_workspace_path = exclude_nested_workspace_paths && path.include?(".xcodeproj/")
+       in_pods_path || nested_workspace_path
+     end
+     .sort_by { |path| [path.count("/"), path] }
+end
+
+platform :ios do
+  desc "Upload a pre-built IPA to App Store Connect / TestFlight"
+  lane :deploy do
+    workspace_root = ENV["GITHUB_WORKSPACE"].to_s.strip
+    workspace_root = Dir.pwd if workspace_root.empty?
+>>>>>>> origin/main
 
     ipa_path = ENV["IPA_PATH"].to_s.strip
-    ipa_path = File.join(output_settings[:output_directory], "#{output_settings[:output_name]}.ipa") if ipa_path.empty?
+    ipa_path = "app.ipa" if ipa_path.empty?
+    unless ipa_path.start_with?("/")
+      ipa_path = File.expand_path(ipa_path, workspace_root)
+    end
 
-    UI.user_error!("IPA not found at #{ipa_path}. Run `fastlane build` first or set IPA_PATH.") unless File.exist?(ipa_path)
+    xcode_workspace = ENV["XCODE_WORKSPACE"].to_s.strip
+    xcode_project = ENV["XCODE_PROJECT"].to_s.strip
+    if xcode_workspace.empty? && xcode_project.empty?
+      workspace_candidates = preferred_xcode_paths(workspace_root, "xcworkspace")
+      xcode_workspace = workspace_candidates.first.to_s
+      if xcode_workspace.empty?
+        project_candidates = preferred_xcode_paths(workspace_root, "xcodeproj")
+        xcode_project = project_candidates.first.to_s
+      end
+    end
 
-    upload_to_app_store(
+    UI.user_error!("No Xcode workspace or project found. Set XCODE_WORKSPACE or XCODE_PROJECT, or commit an .xcworkspace/.xcodeproj to the repository.") if xcode_workspace.empty? && xcode_project.empty?
+
+    scheme = ENV["XCODE_SCHEME"].to_s.strip
+    if scheme.empty?
+      source = xcode_workspace.empty? ? xcode_project : xcode_workspace
+      scheme = File.basename(source, File.extname(source))
+    end
+    UI.user_error!("Unable to determine Xcode scheme. Set XCODE_SCHEME to the app scheme name.") if scheme.empty?
+
+    FileUtils.mkdir_p(File.dirname(ipa_path))
+    build_options = {
+      scheme: scheme,
+      clean: true,
+      export_method: "app-store",
+      output_directory: File.dirname(ipa_path),
+      output_name: File.basename(ipa_path, ".ipa")
+    }
+    if xcode_workspace.empty?
+      build_options[:project] = xcode_project
+    else
+      build_options[:workspace] = xcode_workspace
+    end
+
+    expected_ipa_path = ipa_path
+    produced_ipa_path = build_app(build_options).to_s.strip
+    ipa_path = produced_ipa_path.empty? ? expected_ipa_path : produced_ipa_path
+    UI.user_error!("build_app did not produce an IPA. Expected output at #{expected_ipa_path}, reported output #{produced_ipa_path.empty? ? '(empty)' : produced_ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") unless File.exist?(ipa_path)
+    
+    api_key = app_store_connect_api_key_from_env
+    
+    upload_to_testflight(
       ipa: ipa_path,
-      app_identifier: ENV["FASTLANE_APPLE_APPLICATION_IDENTIFIER"],
-      team_id: ENV["FASTLANE_TEAM_ID"],
       api_key: api_key,
-      apple_id: ENV["FASTLANE_USER"].to_s.strip.empty? ? nil : ENV["FASTLANE_USER"],
-      # Default to binary-only uploads unless explicitly set to "false".
-      skip_metadata: env_true_unless_false("DELIVER_SKIP_METADATA"),
-      skip_screenshots: env_true_unless_false("DELIVER_SKIP_SCREENSHOTS"),
-      force: true
+      skip_waiting_for_build_processing: true
     )
-
-    UI.success("Uploaded #{ipa_path} to App Store Connect.")
+    
+    UI.success("Uploaded #{ipa_path} to TestFlight.")
   end
 end
