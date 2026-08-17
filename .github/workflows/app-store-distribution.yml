@@ -96,8 +96,26 @@ jobs:
           fastlane --version
 
       - name: Validate App Store configuration
+        id: validate
         run: |
           set -euo pipefail
+
+          app_dir="${APP_DIR:-.}"
+
+          # Locate an Xcode project or workspace
+          ios_project_candidates=""
+          if [ -d "$app_dir" ]; then
+            ios_project_candidates="$(find "$app_dir" -maxdepth 3 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) -print)"
+          fi
+
+          # If no Xcode project is present and no override paths are provided,
+          # this repository does not contain an iOS project. Skip gracefully.
+          if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && [ -z "$ios_project_candidates" ]; then
+            echo "::warning::No Xcode workspace or project was found in this repository. Skipping iOS distribution. To enable App Store distribution, commit an iOS project or supply ios_workspace/ios_project when running the workflow manually."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️ App Store distribution skipped: no iOS project found in this repository." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           missing=0
           for secret_name in FASTLANE_APPLE_APPLICATION_IDENTIFIER FASTLANE_TEAM_ID; do
@@ -123,19 +141,8 @@ jobs:
             missing=1
           fi
 
-          app_dir="${APP_DIR:-.}"
           if [ ! -d "$app_dir" ]; then
             echo "::error::Resolved app directory '$app_dir' does not exist."
-            missing=1
-          fi
-
-          ios_project_candidates=""
-          if [ -d "$app_dir" ]; then
-            ios_project_candidates="$(find "$app_dir" -maxdepth 3 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) -print)"
-          fi
-
-          if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && [ -z "$ios_project_candidates" ]; then
-            echo "::error::No Xcode workspace or project was found. Commit the iOS project or supply ios_workspace/ios_project when running the workflow."
             missing=1
           fi
 
@@ -144,7 +151,10 @@ jobs:
             exit 1
           fi
 
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
       - name: Install JavaScript dependencies
+        if: steps.validate.outputs.skip != 'true'
         run: |
           set -euo pipefail
 
@@ -162,12 +172,14 @@ jobs:
           fi
 
       - name: Build web assets
+        if: steps.validate.outputs.skip != 'true'
         run: |
           set -euo pipefail
           cd "${APP_DIR:-.}"
           npm run build --if-present
 
       - name: Sync Capacitor iOS project
+        if: steps.validate.outputs.skip != 'true'
         run: |
           set -euo pipefail
 
@@ -179,6 +191,7 @@ jobs:
           fi
 
       - name: Install CocoaPods dependencies
+        if: steps.validate.outputs.skip != 'true'
         run: |
           set -euo pipefail
 
@@ -206,6 +219,7 @@ jobs:
           pod install --repo-update
 
       - name: Run fastlane build
+        if: steps.validate.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -214,6 +228,7 @@ jobs:
           fastlane ios build 2>&1 | tee fastlane/logs/build.log
 
       - name: Run fastlane deliver
+        if: steps.validate.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
