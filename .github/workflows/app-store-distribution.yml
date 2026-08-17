@@ -16,9 +16,6 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     env:
-      APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
-      APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
-      APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
       IPA_PATH: ${{ github.event.inputs.ipa_path || 'build/app.ipa' }}
     steps:
       - name: Checkout code
@@ -44,12 +41,21 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
       - name: Validate App Store Connect secrets
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
         run: |
           set -euo pipefail
           test -n "${APP_STORE_CONNECT_API_KEY_KEY_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
       - name: Upload IPA with Fastlane
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          XCODE_PROJECT: ios/App/App.xcodeproj
         run: |
           set -euo pipefail
           bundle exec fastlane ios deploy
