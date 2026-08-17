@@ -102,7 +102,7 @@ platform :ios do
     }
     unless team_id.empty?
       build_options[:export_team_id] = team_id
-      build_options[:xcargs] = "DEVELOPMENT_TEAM=#{team_id}"
+      build_options[:xcargs] = [build_options[:xcargs], "DEVELOPMENT_TEAM=#{team_id}"].compact.join(" ")
     end
     if xcode_workspace.empty?
       build_options[:project] = xcode_project
