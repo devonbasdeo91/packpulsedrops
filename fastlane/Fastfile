@@ -48,7 +48,7 @@ end
 
 def preferred_xcode_paths(workspace_root, extension)
   Dir.glob(File.join(workspace_root, "**/*.#{extension}"))
-     .reject { |path| path.include?("/Pods/") }
+     .reject { |path| path.include?("/Pods/") || (extension == "xcworkspace" && path.include?(".xcodeproj/")) }
      .sort_by { |path| [path.count("/"), path] }
 end
 
@@ -89,8 +89,7 @@ platform :ios do
       clean: true,
       export_method: "app-store",
       output_directory: File.dirname(ipa_path),
-      output_name: File.basename(ipa_path, ".ipa"),
-      skip_package_ipa: false
+      output_name: File.basename(ipa_path, ".ipa")
     }
     if xcode_workspace.empty?
       build_options[:project] = xcode_project
