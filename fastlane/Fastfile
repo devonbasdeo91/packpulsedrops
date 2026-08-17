@@ -105,9 +105,10 @@ platform :ios do
       build_options[:workspace] = xcode_workspace
     end
 
+    expected_ipa_path = ipa_path
     produced_ipa_path = build_app(build_options).to_s.strip
-    ipa_path = produced_ipa_path
-    UI.user_error!("build_app did not produce an IPA at #{ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") if ipa_path.empty? || !File.exist?(ipa_path)
+    ipa_path = produced_ipa_path.empty? ? expected_ipa_path : produced_ipa_path
+    UI.user_error!("build_app did not produce an IPA. Expected output at #{expected_ipa_path}, reported output #{produced_ipa_path.empty? ? '(empty)' : produced_ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") unless File.exist?(ipa_path)
     
     api_key = app_store_connect_api_key_from_env
     
