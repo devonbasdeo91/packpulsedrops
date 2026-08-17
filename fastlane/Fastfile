@@ -49,7 +49,7 @@ platform :ios do
   desc "Upload a pre-built IPA to App Store Connect / TestFlight"
   lane :deploy do
     ipa_path = ENV["IPA_PATH"].to_s.strip
-    ipa_path = "build/app.ipa" if ipa_path.empty?
+    ipa_path = "app.ipa" if ipa_path.empty?
     
     UI.user_error!("IPA not found at #{ipa_path}. Make sure the file exists before running this lane.") unless File.exist?(ipa_path)
     
