@@ -34,21 +34,6 @@ jobs:
       - name: Sync Capacitor iOS platform
         run: npx cap sync ios
 
-      - name: Force Automatic Code Signing Mode
-        run: |
-          node -e "
-          const fs = require('fs');
-          const path = './ios/App/App.xcodeproj/project.pbxproj';
-          if (fs.existsSync(path)) {
-            let content = fs.readFileSync(path, 'utf8');
-            content = content.replace(/ProvisioningStyle = Manual;/g, 'ProvisioningStyle = Automatic;');
-            fs.writeFileSync(path, content, 'utf8');
-            console.log('Successfully flipped Xcode project properties to Automatic Signing!');
-          } else {
-            console.log('Warning: project.pbxproj target path not detected.');
-          }
-          "
-
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
