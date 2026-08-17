@@ -68,10 +68,11 @@ platform :ios do
     xcode_project = ENV["XCODE_PROJECT"].to_s.strip
     if xcode_workspace.empty? && xcode_project.empty?
       workspace_candidates = preferred_xcode_paths(workspace_root, "xcworkspace")
-      project_candidates = preferred_xcode_paths(workspace_root, "xcodeproj")
-
       xcode_workspace = workspace_candidates.first.to_s
-      xcode_project = project_candidates.first.to_s if xcode_workspace.empty?
+      if xcode_workspace.empty?
+        project_candidates = preferred_xcode_paths(workspace_root, "xcodeproj")
+        xcode_project = project_candidates.first.to_s
+      end
     end
 
     UI.user_error!("No Xcode workspace or project found. Set XCODE_WORKSPACE or XCODE_PROJECT, or commit an .xcworkspace/.xcodeproj to the repository.") if xcode_workspace.empty? && xcode_project.empty?
