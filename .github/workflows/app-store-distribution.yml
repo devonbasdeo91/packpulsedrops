@@ -1,240 +1,44 @@
 name: App Store Distribution
-
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
     inputs:
-      ios_scheme:
-        description: Optional Xcode scheme override
+      ipa_path:
+        description: "Path to the IPA file"
         required: false
+        default: "build/app.ipa"
         type: string
-      ios_workspace:
-        description: Optional Xcode workspace path override
-        required: false
-        type: string
-      ios_project:
-        description: Optional Xcode project path override
-        required: false
-        type: string
-      ios_export_method:
-        description: Export method for the IPA
-        required: false
-        default: app-store
-        type: string
-
 permissions:
   contents: read
-
 jobs:
-  distribute:
-    runs-on: macos-15
-    timeout-minutes: 90
+  deploy:
+    runs-on: macos-latest
+    timeout-minutes: 45
     env:
-      FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
-      FASTLANE_PASSWORD: ${{ secrets.FASTLANE_PASSWORD }}
-      FASTLANE_APPLE_APPLICATION_IDENTIFIER: ${{ secrets.FASTLANE_APPLE_APPLICATION_IDENTIFIER }}
-      FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-      APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-      IOS_SCHEME: ${{ github.event.inputs.ios_scheme }}
-      IOS_WORKSPACE: ${{ github.event.inputs.ios_workspace }}
-      IOS_PROJECT: ${{ github.event.inputs.ios_project }}
-      IOS_EXPORT_METHOD: ${{ github.event.inputs.ios_export_method || 'app-store' }}
-
+      APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+      APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+      IPA_PATH: ${{ github.event.inputs.ipa_path || 'build/app.ipa' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Prepare app source
-        run: |
-          set -euo pipefail
-
-          if [ -f package.json ]; then
-            echo "APP_DIR=." >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
-          if [ -z "$archive" ]; then
-            echo "::error::No package.json or source archive found at the repository root."
-            exit 1
-          fi
-
-          rm -rf extracted-app
-          mkdir -p extracted-app
-          unzip -q "$archive" -d extracted-app
-
-          if [ ! -f extracted-app/package.json ]; then
-            echo "::error::Source archive '$archive' does not contain a package.json at its root."
-            exit 1
-          fi
-
-          echo "APP_DIR=extracted-app" >> "$GITHUB_ENV"
-
-      - name: Set up Node.js 18.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            extracted-app/package-lock.json
-
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.2
-          # Fastlane is installed directly via `gem install` below, so Bundler caching is intentionally disabled.
-          bundler-cache: false
-
-      - name: Install Fastlane
+          ruby-version: '3.2'
+          bundler-cache: true
+      - name: Validate App Store Connect secrets
         run: |
           set -euo pipefail
-          gem install fastlane --no-document
-          fastlane --version
-
-      - name: Validate App Store configuration
+          test -n "${APP_STORE_CONNECT_API_KEY_KEY_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY_ID" && exit 1)
+          test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
+          test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
+      - name: Validate IPA exists
         run: |
           set -euo pipefail
-
-          missing=0
-          for secret_name in FASTLANE_APPLE_APPLICATION_IDENTIFIER FASTLANE_TEAM_ID; do
-            secret_value="${!secret_name-}"
-            if [ -z "${secret_value}" ]; then
-              echo "::error::Missing required secret: ${secret_name}"
-              missing=1
-            fi
-          done
-
-          has_password_auth=0
-          if [ -n "${FASTLANE_USER:-}" ] && [ -n "${FASTLANE_PASSWORD:-}" ]; then
-            has_password_auth=1
-          fi
-
-          has_api_key_auth=0
-          if [ -n "${APP_STORE_CONNECT_API_KEY:-}" ] && [ -n "${APP_STORE_CONNECT_API_KEY_ID:-}" ] && [ -n "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
-            has_api_key_auth=1
-          fi
-
-          if [ "$has_password_auth" -eq 0 ] && [ "$has_api_key_auth" -eq 0 ]; then
-            echo "::error::Configure either FASTLANE_USER/FASTLANE_PASSWORD or APP_STORE_CONNECT_API_KEY/APP_STORE_CONNECT_API_KEY_ID/APP_STORE_CONNECT_ISSUER_ID."
-            missing=1
-          fi
-
-          app_dir="${APP_DIR:-.}"
-          if [ ! -d "$app_dir" ]; then
-            echo "::error::Resolved app directory '$app_dir' does not exist."
-            missing=1
-          fi
-
-          ios_project_candidates=""
-          if [ -d "$app_dir" ]; then
-            ios_project_candidates="$(find "$app_dir" -maxdepth 3 \( -name '*.xcworkspace' -o -name '*.xcodeproj' \) -print)"
-          fi
-
-          if [ -z "${IOS_WORKSPACE:-}" ] && [ -z "${IOS_PROJECT:-}" ] && [ -z "$ios_project_candidates" ]; then
-            echo "::error::No Xcode workspace or project was found. Commit the iOS project or supply ios_workspace/ios_project when running the workflow."
-            missing=1
-          fi
-
-          if [ "$missing" -ne 0 ]; then
-            echo "❌ App Store distribution prerequisites are missing." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-      - name: Install JavaScript dependencies
+          test -f "${IPA_PATH}" || (echo "::error::IPA not found at ${IPA_PATH}" && exit 1)
+      - name: Upload IPA with Fastlane
         run: |
           set -euo pipefail
-
-          cd "${APP_DIR:-.}"
-
-          if [ ! -f package.json ]; then
-            echo "No package.json in ${APP_DIR:-.}; skipping JavaScript dependency installation."
-            exit 0
-          fi
-
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build web assets
-        run: |
-          set -euo pipefail
-          cd "${APP_DIR:-.}"
-          npm run build --if-present
-
-      - name: Sync Capacitor iOS project
-        run: |
-          set -euo pipefail
-
-          cd "${APP_DIR:-.}"
-          if [ -f capacitor.config.ts ] || [ -f capacitor.config.json ]; then
-            npx cap sync ios
-          else
-            echo "No Capacitor config found; skipping iOS sync."
-          fi
-
-      - name: Install CocoaPods dependencies
-        run: |
-          set -euo pipefail
-
-          app_dir="${APP_DIR:-.}"
-          pod_directory=""
-
-          if [ -f "${app_dir}/ios/App/Podfile" ]; then
-            pod_directory="${app_dir}/ios/App"
-          elif [ -f "${app_dir}/ios/Podfile" ]; then
-            pod_directory="${app_dir}/ios"
-          elif [ -f "${app_dir}/Podfile" ]; then
-            pod_directory="${app_dir}"
-          elif [ -f "ios/Podfile" ]; then
-            pod_directory="ios"
-          elif [ -f "Podfile" ]; then
-            pod_directory="."
-          fi
-
-          if [ -z "${pod_directory}" ]; then
-            echo "No Podfile found; skipping CocoaPods installation."
-            exit 0
-          fi
-
-          cd "$pod_directory"
-          pod install --repo-update
-
-      - name: Run fastlane build
-        shell: bash
-        run: |
-          set -euo pipefail
-          export APP_DIR="${APP_DIR:-.}"
-          mkdir -p fastlane/logs
-          fastlane ios build 2>&1 | tee fastlane/logs/build.log
-
-      - name: Run fastlane deliver
-        shell: bash
-        run: |
-          set -euo pipefail
-          export APP_DIR="${APP_DIR:-.}"
-          mkdir -p fastlane/logs
-          fastlane ios deliver 2>&1 | tee fastlane/logs/deliver.log
-
-      - name: Upload Fastlane logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fastlane-logs
-          path: fastlane/logs/
-          if-no-files-found: warn
-
-      - name: Distribution succeeded
-        if: success()
-        run: echo "✅ App Store distribution completed successfully." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Distribution failed
-        if: failure()
-        run: |
-          echo "::error::App Store distribution failed. Review the Fastlane logs artifact and workflow output for details."
-          echo "❌ App Store distribution failed. Review the Fastlane logs artifact and workflow output for details." >> "$GITHUB_STEP_SUMMARY"
+          bundle exec fastlane ios deploy
