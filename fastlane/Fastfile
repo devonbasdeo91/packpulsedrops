@@ -19,7 +19,7 @@ platform :ios do
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
-      xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates PROVISIONING_PROFILE_SPECIFIER='PackPulseDrop Distribution'"
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates"
     )
 
     # Directly stream the package payload up utilizing user credentials
