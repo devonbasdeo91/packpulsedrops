@@ -212,6 +212,32 @@ platform :ios do
     UI.success("Created iOS build at #{File.join(output_settings[:output_directory], "#{output_settings[:output_name]}.ipa")}")
   end
 
+  desc "Upload a pre-built IPA at build/app.ipa directly to TestFlight (no Xcode compile)"
+  lane :deploy do
+    key_id     = require_env!("APP_STORE_CONNECT_API_KEY_KEY_ID",     "App Store Connect API key ID")
+    issuer_id  = require_env!("APP_STORE_CONNECT_API_KEY_ISSUER_ID",  "App Store Connect API key issuer ID")
+    key_content = ENV["APP_STORE_CONNECT_API_KEY_KEY"].to_s.strip
+    UI.user_error!("Missing APP_STORE_CONNECT_API_KEY_KEY (.p8 content). Configure it in GitHub Actions secrets.") if key_content.empty?
+
+    ipa_path = File.expand_path("build/app.ipa")
+    UI.user_error!("IPA not found at #{ipa_path}. Upload build/app.ipa to your repository branch before running this workflow.") unless File.exist?(ipa_path)
+
+    api_key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_content: key_content,
+      is_key_content_base64: false
+    )
+
+    upload_to_testflight(
+      ipa: ipa_path,
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+
+    UI.success("Uploaded #{ipa_path} to TestFlight.")
+  end
+
   desc "Upload the iOS build to App Store Connect"
   lane :deliver do
     require_app_store_auth!

@@ -86,8 +86,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
-          # Fastlane is installed directly via `gem install` below, so Bundler caching is intentionally disabled.
-          bundler-cache: false
+          bundler-cache: true
 
       - name: Install Fastlane
         run: |
@@ -243,6 +242,18 @@ jobs:
           name: fastlane-logs
           path: fastlane/logs/
           if-no-files-found: warn
+
+      - name: Upload pre-built IPA to TestFlight
+        if: hashFiles('build/app.ipa') != ''
+        shell: bash
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p fastlane/logs
+          bundle exec fastlane ios deploy 2>&1 | tee fastlane/logs/deploy.log
 
       - name: Distribution succeeded
         if: success()
