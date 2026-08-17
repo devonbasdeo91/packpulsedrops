@@ -50,7 +50,7 @@ platform :ios do
   lane :deploy do
     ipa_path = ENV["IPA_PATH"].to_s.strip
     ipa_path = "app.ipa" if ipa_path.empty?
-    if !ipa_path.start_with?("/")
+    unless ipa_path.start_with?("/")
       workspace = ENV["GITHUB_WORKSPACE"].to_s.strip
       base_dir = workspace.empty? ? Dir.pwd : workspace
       ipa_path = File.expand_path(ipa_path, base_dir)
