@@ -15,9 +15,6 @@ jobs:
   deploy:
     runs-on: macos-latest
     timeout-minutes: 45
-    strategy:
-      matrix:
-        node-version: [22.x]
     env:
       APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
       APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
@@ -29,7 +26,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '22'
           cache: 'npm'
       - name: Extract project archive
         run: unzip -o "pack-pulse-drops (7).zip" -d . 2>/dev/null || true
