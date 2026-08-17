@@ -61,14 +61,27 @@ platform :ios do
     xcode_workspace = ENV["XCODE_WORKSPACE"].to_s.strip
     xcode_project = ENV["XCODE_PROJECT"].to_s.strip
     if xcode_workspace.empty? && xcode_project.empty?
-      xcode_workspace = Dir.glob(File.join(workspace_root, "**/*.xcworkspace")).sort.first.to_s
-      xcode_project = Dir.glob(File.join(workspace_root, "**/*.xcodeproj")).sort.first.to_s if xcode_workspace.empty?
+      workspace_candidates = (
+        Dir.glob(File.join(workspace_root, "*.xcworkspace")).sort +
+        Dir.glob(File.join(workspace_root, "**/*.xcworkspace")).sort
+      ).reject { |path| path.include?("/Pods/") }.uniq
+      project_candidates = (
+        Dir.glob(File.join(workspace_root, "*.xcodeproj")).sort +
+        Dir.glob(File.join(workspace_root, "**/*.xcodeproj")).sort
+      ).reject { |path| path.include?("/Pods/") }.uniq
+
+      xcode_workspace = workspace_candidates.first.to_s
+      xcode_project = project_candidates.first.to_s if xcode_workspace.empty?
     end
 
     UI.user_error!("No Xcode workspace or project found. Set XCODE_WORKSPACE or XCODE_PROJECT, or commit an .xcworkspace/.xcodeproj to the repository.") if xcode_workspace.empty? && xcode_project.empty?
 
     scheme = ENV["XCODE_SCHEME"].to_s.strip
-    scheme = "packpulsedrops" if scheme.empty?
+    if scheme.empty?
+      source = xcode_workspace.empty? ? xcode_project : xcode_workspace
+      scheme = File.basename(source, File.extname(source))
+    end
+    UI.user_error!("No Xcode scheme configured. Set XCODE_SCHEME to the app scheme name.") if scheme.empty?
 
     FileUtils.mkdir_p(File.dirname(ipa_path))
     build_options = {
