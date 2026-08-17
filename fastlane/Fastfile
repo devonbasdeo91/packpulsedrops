@@ -47,8 +47,14 @@ def app_store_connect_api_key_from_env
 end
 
 def preferred_xcode_paths(workspace_root, extension)
+  exclude_nested_workspace_paths = extension == "xcworkspace"
   Dir.glob(File.join(workspace_root, "**/*.#{extension}"))
-     .reject { |path| path.include?("/Pods/") || (extension == "xcworkspace" && path.include?(".xcodeproj/")) }
+     .reject do |path|
+       components = path.split("/")
+       in_pods_path = components.include?("Pods") || File.basename(path).start_with?("Pods.")
+       nested_workspace_path = exclude_nested_workspace_paths && path.include?(".xcodeproj/")
+       in_pods_path || nested_workspace_path
+     end
      .sort_by { |path| [path.count("/"), path] }
 end
 
@@ -99,7 +105,8 @@ platform :ios do
     end
 
     produced_ipa_path = build_app(build_options).to_s.strip
-    ipa_path = produced_ipa_path unless produced_ipa_path.empty?
+    UI.user_error!("build_app did not return an IPA path. Check build logs for workspace, scheme, signing, or export failures.") if produced_ipa_path.empty?
+    ipa_path = produced_ipa_path
     
     UI.user_error!("IPA was not produced by build_app at #{ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") unless File.exist?(ipa_path)
     
