@@ -33,13 +33,13 @@ platform :ios do
     # 1. Authenticate API Key Context
     api_key = app_store_connect_api_key_from_env
 
-    # 2. Build the app by forcing direct cloud updates inside the underlying compiler
+    # 2. Compile the app package using clean, explicit build flags
     build_app(
       scheme: "App",
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
-      xcargs: "DEVELOPMENT_TEAM=#{team_id} -allowProvisioningUpdates -authenticationKeyID #{ENV['APP_STORE_CONNECT_API_KEY_KEY_ID']} -authenticationKeyIssuerID #{ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID']} CODE_SIGN_STYLE=Automatic"
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY='iPhone Distribution' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
     )
 
     # 3. Upload to Apple TestFlight
