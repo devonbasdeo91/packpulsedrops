@@ -89,6 +89,25 @@ The `.github/workflows/app-store-distribution.yml` workflow uploads your IPA to 
 | `APP_STORE_CONNECT_API_KEY_ISSUER_ID` | App Store Connect API Issuer ID |
 | `APP_STORE_CONNECT_API_KEY_KEY` | Raw `.p8` private key text including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` |
 
+### Project Type and iOS Build Limitation
+
+This repository is a standard web app built with React + Vite + JavaScript/TypeScript and Base44 integration. It is not a React Native, Cordova, Capacitor, or Flutter project.
+
+There is currently no native iOS project (`.xcodeproj` or `.xcworkspace`) in this repository, so the GitHub workflow can upload an existing IPA but cannot build one.
+
+### Chromebook-Friendly IPA Process (AppMyWeb + GitHub Actions)
+
+1. Push your latest web code to `main`.
+2. In AppMyWeb, create or update your iOS app build from this web project.
+3. Configure Apple signing in AppMyWeb (bundle ID, team, certificate, provisioning profile, App Store distribution mode).
+4. Build in AppMyWeb and download the generated `.ipa`.
+5. Make the IPA available to this repository's workflow at `build/app.ipa` (or pass another path via `workflow_dispatch` input `ipa_path`).
+6. Run `.github/workflows/app-store-distribution.yml` manually from GitHub Actions.
+7. Confirm logs show:
+   - `Validate App Store Connect secrets` passed
+   - `Validate IPA exists` passed
+   - Fastlane upload completed successfully
+
 ## Docs & Support
 
 Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)

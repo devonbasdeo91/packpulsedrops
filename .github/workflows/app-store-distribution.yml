@@ -41,6 +41,11 @@ jobs:
           test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
           test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
 
+      - name: Validate IPA exists
+        run: |
+          set -euo pipefail
+          test -f "${IPA_PATH}" || (echo "::error::IPA not found at ${IPA_PATH}" && exit 1)
+
       - name: Upload IPA with Fastlane
         run: |
           set -euo pipefail
