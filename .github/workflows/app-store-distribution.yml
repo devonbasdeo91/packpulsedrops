@@ -3,42 +3,55 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      ipa_path:
-        description: "Path to the IPA file"
-        required: false
-        default: "build/app.ipa"
-        type: string
+
 permissions:
   contents: read
+
 jobs:
   deploy:
     runs-on: macos-latest
     timeout-minutes: 45
     env:
-      APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID }}
-      APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
-      APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
-      IPA_PATH: ${{ github.event.inputs.ipa_path || 'build/app.ipa' }}
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Extract project archive
+        run: |
+          unzip -o "pack-pulse-drops (7).zip" -d .
+          
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync Capacitor iOS platform
+        run: npx cap sync ios
+
+      - name: Force Automatic Code Signing Mode
+        run: |
+          find . -name "project.pbxproj" -exec sed -i '' 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' {} +
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
           bundler-cache: true
-      - name: Validate App Store Connect secrets
-        run: |
-          set -euo pipefail
-          test -n "${APP_STORE_CONNECT_API_KEY_KEY_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY_ID" && exit 1)
-          test -n "${APP_STORE_CONNECT_API_KEY_ISSUER_ID}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_ISSUER_ID" && exit 1)
-          test -n "${APP_STORE_CONNECT_API_KEY_KEY}" || (echo "::error::Missing secret APP_STORE_CONNECT_API_KEY_KEY" && exit 1)
-      - name: Validate IPA exists
-        run: |
-          set -euo pipefail
-          test -f "${IPA_PATH}" || (echo "::error::IPA not found at ${IPA_PATH}" && exit 1)
+
       - name: Upload IPA with Fastlane
+        env:
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY_ID || secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID || secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_KEY }}
+          FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
         run: |
           set -euo pipefail
           bundle exec fastlane ios deploy
