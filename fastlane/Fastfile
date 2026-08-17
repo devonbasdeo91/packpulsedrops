@@ -2,6 +2,8 @@ default_platform(:ios)
 
 require "base64"
 require "tempfile"
+require "fileutils"
+require "pathname"
 
 def require_env!(key, description)
   value = ENV[key].to_s.strip
@@ -45,13 +47,83 @@ def app_store_connect_api_key_from_env
   )
 end
 
+def preferred_xcode_paths(workspace_root, extension)
+  exclude_nested_workspace_paths = extension == "xcworkspace"
+  Dir.glob(File.join(workspace_root, "**/*.#{extension}"))
+     .reject do |path|
+       components = Pathname.new(path).each_filename.to_a
+       in_pods_path = components.include?("Pods") || File.basename(path).start_with?("Pods.")
+       nested_workspace_path = exclude_nested_workspace_paths && path.include?(".xcodeproj/")
+       in_pods_path || nested_workspace_path
+     end
+     .sort_by { |path| [path.count("/"), path] }
+end
+
 platform :ios do
   desc "Upload a pre-built IPA to App Store Connect / TestFlight"
   lane :deploy do
+    workspace_root = ENV["GITHUB_WORKSPACE"].to_s.strip
+    workspace_root = Dir.pwd if workspace_root.empty?
+    team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
+    unless team_id.empty? || team_id.match?(/\A[A-Z0-9]{10}\z/)
+      UI.user_error!("FASTLANE_TEAM_ID must be a 10-character Apple Developer team identifier containing only A-Z and 0-9.")
+    end
+
     ipa_path = ENV["IPA_PATH"].to_s.strip
     ipa_path = "app.ipa" if ipa_path.empty?
-    
-    UI.user_error!("IPA not found at #{ipa_path}. Make sure the file exists before running this lane.") unless File.exist?(ipa_path)
+    unless ipa_path.start_with?("/")
+      ipa_path = File.expand_path(ipa_path, workspace_root)
+    end
+
+    xcode_workspace = ENV["XCODE_WORKSPACE"].to_s.strip
+    xcode_project = ENV["XCODE_PROJECT"].to_s.strip
+    if xcode_workspace.empty? && xcode_project.empty?
+      workspace_candidates = preferred_xcode_paths(workspace_root, "xcworkspace")
+      xcode_workspace = workspace_candidates.first.to_s
+      if xcode_workspace.empty?
+        project_candidates = preferred_xcode_paths(workspace_root, "xcodeproj")
+        xcode_project = project_candidates.first.to_s
+      end
+    end
+
+    UI.user_error!("No Xcode workspace or project found. Set XCODE_WORKSPACE or XCODE_PROJECT, or commit an .xcworkspace/.xcodeproj to the repository.") if xcode_workspace.empty? && xcode_project.empty?
+
+    scheme = ENV["XCODE_SCHEME"].to_s.strip
+    if scheme.empty?
+      source = xcode_workspace.empty? ? xcode_project : xcode_workspace
+      scheme = File.basename(source, File.extname(source))
+    end
+    UI.user_error!("Unable to determine Xcode scheme. Set XCODE_SCHEME to the app scheme name.") if scheme.empty?
+
+    FileUtils.mkdir_p(File.dirname(ipa_path))
+    build_options = {
+      scheme: scheme,
+      clean: true,
+      export_method: "app-store",
+      output_directory: File.dirname(ipa_path),
+      output_name: File.basename(ipa_path, ".ipa")
+    }
+    unless team_id.empty?
+      build_options[:export_team_id] = team_id
+      xcargs = build_options[:xcargs].to_s
+      unless build_options[:xcargs].to_s.match?(/(?:^|\s)DEVELOPMENT_TEAM=/)
+        xcargs = [xcargs, "DEVELOPMENT_TEAM=#{team_id}"].reject(&:empty?).join(" ")
+      end
+      unless xcargs.match?(/(?:^|\s)-allowProvisioningUpdates(?:\s|$)/)
+        xcargs = [xcargs, "-allowProvisioningUpdates"].reject(&:empty?).join(" ")
+      end
+      build_options[:xcargs] = xcargs unless xcargs.empty?
+    end
+    if xcode_workspace.empty?
+      build_options[:project] = xcode_project
+    else
+      build_options[:workspace] = xcode_workspace
+    end
+
+    expected_ipa_path = ipa_path
+    produced_ipa_path = build_app(build_options).to_s.strip
+    ipa_path = produced_ipa_path.empty? ? expected_ipa_path : produced_ipa_path
+    UI.user_error!("build_app did not produce an IPA. Expected output at #{expected_ipa_path}, reported output #{produced_ipa_path.empty? ? '(empty)' : produced_ipa_path}. Check build logs for signing, workspace, scheme, or archive errors.") unless File.exist?(ipa_path)
     
     api_key = app_store_connect_api_key_from_env
     
