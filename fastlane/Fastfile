@@ -6,11 +6,15 @@ platform :ios do
     team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
     UI.user_error!("Missing FASTLANE_TEAM_ID secret.") if team_id.empty?
 
-    # Explicitly load the API Key using the native environment variables mapped in your workflow
+    # Force format reconstruction to ensure newlines are preserved precisely for Apple's server
+    raw_key = ENV["FASTLANE_API_KEY_KEY_CONTENT"].to_s
+    formatted_key = raw_key.include?("BEGIN PRIVATE KEY") ? raw_key : raw_key.gsub("\\n", "\n")
+
+    # Load the App Store Connect API key with the reconstructed multi-line string configuration
     api_key = app_store_connect_api_key(
       key_id: ENV["FASTLANE_API_KEY_KEY_ID"],
       issuer_id: ENV["FASTLANE_API_KEY_ISSUER_ID"],
-      key_content: ENV["FASTLANE_API_KEY_KEY_CONTENT"],
+      key_content: formatted_key,
       is_key_content_base64: false
     )
 
