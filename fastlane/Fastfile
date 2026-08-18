@@ -18,11 +18,10 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # Download certificates and capture profile properties dynamically
+    # Use force: false for certificates, and force: true for profiles to generate it if missing
     get_certificates(api_key: api_key, force: false)
     get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops", force: true)
     
-    # Compile the binary by explicitly feeding the downloaded profile parameter maps into xcodebuild
     build_app(
       scheme: "App",
       configuration: "Release",
