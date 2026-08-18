@@ -18,17 +18,24 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # Use force: false for certificates, and force: true for profiles to generate it if missing
+    # Download certificates and capture profile properties dynamically
     get_certificates(api_key: api_key, force: false)
     get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops", force: true)
     
+    # Compile the binary by explicitly feeding the downloaded profile parameter maps into xcodebuild
     build_app(
       scheme: "App",
       configuration: "Release",
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",
       export_team_id: team_id,
-      xcargs: "DEVELOPMENT_TEAM=#{team_id}"
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} PROVISIONING_PROFILE_SPECIFIER='com.pack-pulse-drops.pack-pulse-drops AppStore'",
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "com.pack-pulse-drops.pack-pulse-drops" => ENV["SIGH_UUID"]
+        }
+      }
     )
     
     upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
