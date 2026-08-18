@@ -40,18 +40,12 @@ platform :ios do
         "com.pack-pulse-drops.pack-pulse-drops" => "PackPulse Drops AppStore Provisioning Profile"
       }
     },
-      export_team_id: team_id,
+    export_team_id: team_id,
       xcargs: "DEVELOPMENT_TEAM=#{team_id} PROVISIONING_PROFILE_SPECIFIER='com.pack-pulse-drops.pack-pulse-drops AppStore'",
-      export_options: {
-        signingStyle: "manual",
-        provisioningProfiles: {
-          "com.pack-pulse-drops.pack-pulse-drops" => ENV["SIGH_UUID"]
-        }
-      }
-    )
-    
-    # 4. Stream the finalized asset up to TestFlight
-    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
-    UI.success("Successfully uploaded app to TestFlight!")
-  end
+  )
+
+  # 4. Stream the finalized asset up to TestFlight
+  upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+  UI.success("Successfully uploaded app to TestFlight!")
+end
 end
