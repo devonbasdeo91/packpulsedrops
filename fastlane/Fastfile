@@ -33,7 +33,7 @@ platform :ios do
     build_app(
       scheme: "App",
       configuration: "Release",
-      project: "ios/App/App.xcodeproj",
+      workspace: "ios/App/App.xcworkspace",
       export_method: "app-store",
     export_options: {
       provisioningProfiles: {
