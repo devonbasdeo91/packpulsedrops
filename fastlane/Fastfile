@@ -3,7 +3,14 @@ default_platform(:ios)
 platform :ios do
   desc "Compile the iOS app and upload it to TestFlight directly"
   lane :deploy do
-    # 1. Compile React production build and sync assets to Capacitor native layers
+    # 1. Initialize Authentication Key and Web Asset Compilation Hooks
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APPSTORE_KEY_ID"].to_s.strip,
+      issuer_id: ENV["APPSTORE_ISSUER_ID"].to_s.strip,
+      key_content: ENV["APPSTORE_PRIVATE_KEY"].to_s.strip,
+      is_key_content_base64: true
+    )
+
     sh "cd .. && npm install && npm run build && npx cap sync ios"
 
     team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
@@ -14,7 +21,7 @@ platform :ios do
     update_code_signing_settings(use_automatic_signing: false, path: "ios/App/App.xcodeproj")
     disable_automatic_code_signing(path: "ios/App/App.xcodeproj")
 
-    # 3. Build the Application Bundle bypassing fragile pre-checks
+    # 3. Build the Application Bundle via the Framework Workspace Root
     build_app(
       scheme: "App",
       configuration: "Release",
@@ -22,13 +29,14 @@ platform :ios do
       export_method: "app-store",
       export_team_id: team_id,
       export_options: {
+        signingStyle: "manual",
         provisioningProfiles: {
           "com.pack-pulse-drops.pack-pulse-drops" => "PackPulse Drops AppStore Provisioning Profile"
         }
       }
     )
 
-    # 4. Stream the finalized asset up to TestFlight
+    # 4. Stream the finalized asset up to TestFlight using the active API Key
     upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
     UI.success("Successfully uploaded app to TestFlight!")
   end
