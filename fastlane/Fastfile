@@ -6,12 +6,9 @@ platform :ios do
     team_id = ENV["FASTLANE_TEAM_ID"].to_s.strip
     UI.user_error!("Missing FASTLANE_TEAM_ID secret.") if team_id.empty?
 
-    # Initialize the key object natively using your global workflow environment variables
-    api_key = app_store_connect_api_key
-
-    # Pass the key explicitly into code-signing tasks to prevent username requests
-    get_certificates(api_key: api_key)
-    get_provisioning_profile(api_key: api_key, app_identifier: "://packpulsedrops.com")
+    # Fastlane tools will automatically pull from global environment variables
+    get_certificates
+    get_provisioning_profile(app_identifier: "://packpulsedrops.com")
     
     build_app(
       scheme: "App",
@@ -22,7 +19,7 @@ platform :ios do
       xcargs: "DEVELOPMENT_TEAM=#{team_id}"
     )
     
-    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+    upload_to_testflight(skip_waiting_for_build_processing: true)
     UI.success("Successfully uploaded app to TestFlight!")
   end
 end

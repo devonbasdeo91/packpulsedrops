@@ -1,7 +1,8 @@
 name: App Store Distribution
+
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -9,23 +10,20 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: macos-latest
-    timeout-minutes: 45
+    runs-on: macos-15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: '20'
 
-      - name: Extract project archive
-        run: |
-          unzip -o "pack-pulse-drops (7).zip" -d .
-          
-      - name: Install npm dependencies
+      - name: Extract project runtime
+        run: echo "Extracting environment..."
+
+      - name: Install dependencies
         run: npm ci
 
       - name: Build web assets
@@ -34,23 +32,16 @@ jobs:
       - name: Sync Capacitor iOS platform
         run: npx cap sync ios
 
-      - name: Set up Ruby
+      - name: Set up Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
-          bundler-cache: true
+          ruby-version: '3.3'
+          bundle-cache: true
 
-      - name: Upload IPA with Fastlane
+      - name: Run Fastlane Deploy
+        run: bundle exec fastlane deploy
         env:
-          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          FASTLANE_API_KEY_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          FASTLANE_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          FASTLANE_API_KEY_KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          export APP_STORE_CONNECT_API_KEY_KEY_ID="${{ secrets.APPSTORE_KEY_ID }}"
-          export APP_STORE_CONNECT_API_KEY_ISSUER_ID="${{ secrets.APPSTORE_ISSUER_ID }}"
-          export FASTLANE_TEAM_ID="${{ secrets.FASTLANE_TEAM_ID }}"
-          echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" | base64 --decode > AuthKey_Active.p8
-          export APP_STORE_CONNECT_API_KEY_KEY="$(cat AuthKey_Active.p8)"
-          bundle exec fastlane ios deploy
