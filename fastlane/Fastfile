@@ -21,7 +21,7 @@ platform :ios do
     # 1. Download/Create certificate and install it to the local cloud keychain
     # get_certificates(api_key: api_key, force: false)
   setup_ci
-  update_code_signing_settings(use_automatic_signing: false)
+  update_code_signing_settings(use_automatic_signing: false, path: "ios/App/App.xcodeproj")
 
     # 2. Download/Create matching provisioning profile configuration natively
     get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops", force: true)
