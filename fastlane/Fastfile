@@ -18,8 +18,7 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # Use force: false for certificates, and force: true for profiles to generate it if missing
-    get_certificates(api_key: api_key, force: false)
+    # Let Apple's cloud infrastructure manage the profile signatures natively
     get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops", force: true)
     
     build_app(
