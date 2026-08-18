@@ -26,7 +26,6 @@ jobs:
           if [ -n "$archive" ]; then
             echo "Extracting $archive..."
             unzip -q "$archive" -d temp_extracted
-            # Move files to root if they are nested inside an inner folder
             if [ -d "temp_extracted/pack-pulse-drops" ]; then
               cp -R temp_extracted/pack-pulse-drops/* .
             else
@@ -54,7 +53,9 @@ jobs:
           bundle-cache: true
 
       - name: Run Fastlane Deploy
-        run: bundle exec fastlane deploy
+        run: |
+          cd fastlane || true
+          bundle exec fastlane deploy
         env:
           FASTLANE_API_KEY_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           FASTLANE_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
