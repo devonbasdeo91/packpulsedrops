@@ -24,7 +24,7 @@ platform :ios do
   update_code_signing_settings(use_automatic_signing: false, path: "ios/App/App.xcodeproj")
 
     # 2. Download/Create matching provisioning profile configuration natively
-    get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops", force: true)
+    # # get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops", force: true)
     
     # 3. Compile and seal the production .ipa package using explicit manual export mapping options
     build_app(
