@@ -46,6 +46,16 @@ jobs:
       - name: Sync Capacitor iOS platform
         run: npx cap sync ios
 
+      - name: Force Xcode Bundle Identification Alignment
+        run: |
+          # Patch project target files to ensure absolute code-signing alignment
+          project_pbx="ios/App/App.xcodeproj/project.pbxproj"
+          if [ -f "$project_pbx" ]; then
+            echo "Aligning internal bundle definitions..."
+            sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = com.pack-pulse-drops.pack-pulse-drops;/g' "$project_pbx"
+            sed -i '' 's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = 37Z2X339H3;/g' "$project_pbx"
+          fi
+
       - name: Set up Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
