@@ -29,6 +29,7 @@ platform :ios do
     # 3. Compile and seal the production .ipa package using explicit manual export mapping options
     build_app(
       scheme: "App",
+    before_all: -> { sh "cd .. && npm install && npm run build && npx cap sync ios" },
       configuration: "Release",
       project: "ios/App/App.xcodeproj",
       export_method: "app-store",

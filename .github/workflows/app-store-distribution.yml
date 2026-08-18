@@ -74,3 +74,7 @@ jobs:
           FASTLANE_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           FASTLANE_API_KEY_KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
           FASTLANE_TEAM_ID: ${{ secrets.FASTLANE_TEAM_ID }}
+
+      - name: Print detailed Xcode error logs if build fails
+        if: failure()
+        run: cat /Users/runner/Library/Logs/gym/App-App.log
