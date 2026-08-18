@@ -52,6 +52,9 @@ jobs:
           ruby-version: '3.3'
           bundle-cache: true
 
+      - name: Install Ruby Gems
+        run: bundle install
+
       - name: Run Fastlane Deploy
         run: |
           cd fastlane || true
