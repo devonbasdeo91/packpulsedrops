@@ -20,7 +20,7 @@ platform :ios do
 
     # Pass the authenticated api_key down to bypass the username requirement
     get_certificates(api_key: api_key)
-    get_provisioning_profile(api_key: api_key, app_identifier: "app.packpulsedrops.com")
+    get_provisioning_profile(api_key: api_key, app_identifier: "com.pack-pulse-drops.pack-pulse-drops")
     
     build_app(
       scheme: "App",
