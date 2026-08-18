@@ -20,8 +20,23 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Extract project runtime
-        run: echo "Extracting environment..."
+      - name: Extract project runtime zipped app
+        run: |
+          archive="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          if [ -n "$archive" ]; then
+            echo "Extracting $archive..."
+            unzip -q "$archive" -d temp_extracted
+            # Move files to root if they are nested inside an inner folder
+            if [ -d "temp_extracted/pack-pulse-drops" ]; then
+              cp -R temp_extracted/pack-pulse-drops/* .
+            else
+              cp -R temp_extracted/* .
+            fi
+            rm -rf temp_extracted
+          else
+            echo "No zip archive file found at root!"
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci
