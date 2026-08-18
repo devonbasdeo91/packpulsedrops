@@ -41,7 +41,7 @@ platform :ios do
       }
     },
     export_team_id: team_id,
-      xcargs: "DEVELOPMENT_TEAM=#{team_id} PROVISIONING_PROFILE_SPECIFIER='com.pack-pulse-drops.pack-pulse-drops AppStore'",
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} PROVISIONING_PROFILE_SPECIFIER='PackPulse Drops AppStore Provisioning Profile'",
   )
 
   # 4. Stream the finalized asset up to TestFlight
